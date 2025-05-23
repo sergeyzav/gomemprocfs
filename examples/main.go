@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-	vmm, err := go_memprocfs.NewVmm("-device", "/Users/user/projects/go-memprocfs/examples/memdump.raw", "-v", "-printf", "-memmap", "/Users/user/GolandProjects/MemProcFsGolang/libs/memmap.txt")
+	vmm, err := memprocfs.NewVmm("-device", "/Users/user/projects/go-memprocfs/examples/memdump.raw", "-v", "-printf", "-memmap", "/Users/user/GolandProjects/MemProcFsGolang/libs/memmap.txt")
 	//vmm, err := memprocfs.NewVmm("-device", "/Users/user/Downloads/memdump.raw")
 	//vmm, err := memprocfs.NewVmm("-device", "/Users/user/Downloads/memdump.raw", "-v", "-vv", "-vvv", "-printf")
 
@@ -32,7 +32,7 @@ func main() {
 
 	fmt.Println("pid: ", pid)
 
-	infoString, err := vmm.GetProcessInfoString(context.TODO(), pid, go_memprocfs.ProcessInformationOptStringPathKernel)
+	infoString, err := vmm.GetProcessInfoString(context.TODO(), pid, memprocfs.ProcessInformationOptStringPathKernel)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -40,7 +40,7 @@ func main() {
 
 	fmt.Println("info string path kernel: ", infoString)
 
-	infoString, err = vmm.GetProcessInfoString(context.TODO(), pid, go_memprocfs.ProcessInformationOptStringPathUserImage)
+	infoString, err = vmm.GetProcessInfoString(context.TODO(), pid, memprocfs.ProcessInformationOptStringPathUserImage)
 	if err != nil {
 		fmt.Println(err)
 		//return
@@ -48,7 +48,7 @@ func main() {
 
 	fmt.Println("info string user image: ", infoString)
 
-	infoString, err = vmm.GetProcessInfoString(context.TODO(), pid, go_memprocfs.ProcessInformationOptStringCmdline)
+	infoString, err = vmm.GetProcessInfoString(context.TODO(), pid, memprocfs.ProcessInformationOptStringCmdline)
 	if err != nil {
 		fmt.Println(err)
 		//return

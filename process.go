@@ -1,4 +1,4 @@
-package go_memprocfs
+package memprocfs
 
 /*
 #include "vmmdll.h"

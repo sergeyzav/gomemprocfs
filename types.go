@@ -1,4 +1,4 @@
-package go_memprocfs
+package memprocfs
 
 // FLAG used to supress the default read cache in calls to VMM_MemReadEx()
 // which will lead to the read being fetched from the target system always.

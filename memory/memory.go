@@ -20,13 +20,13 @@ type unit struct {
 
 type Memory struct {
 	locker      sync.Mutex
-	scatterTask *go_memprocfs.ScatterTask
+	scatterTask *memprocfs.ScatterTask
 	units       []*unit
 	limits      int
 	ops         int
 }
 
-func NewMemory(scatterTask *go_memprocfs.ScatterTask, limits int) *Memory {
+func NewMemory(scatterTask *memprocfs.ScatterTask, limits int) *Memory {
 	return &Memory{
 		scatterTask: scatterTask,
 		limits:      limits,
