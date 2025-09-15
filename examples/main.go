@@ -7,12 +7,16 @@ import (
 	"github.com/sergeyzav/memprocfs"
 	"github.com/sergeyzav/memprocfs/memory"
 	"time"
-	"unsafe"
 )
 
 func main() {
-
-	vmm, err := memprocfs.NewVmm("-device", "/Users/user/projects/go-memprocfs/examples/memdump.raw", "-v", "-printf", "-memmap", "/Users/user/GolandProjects/MemProcFsGolang/libs/memmap.txt")
+	vmm, err := memprocfs.NewVmm(
+		memprocfs.WithDevice("/Users/user/projects/memprocfs/examples/memdump.raw"),
+		memprocfs.WithVerbose(),
+		memprocfs.WithPrintf(),
+		memprocfs.WithMemMap("/Users/user/GolandProjects/MemProcFsGolang/libs/memmap.txt"),
+	)
+	//vmm, err := memprocfs.NewVmm("-device", "/Users/user/projects/memprocfs/examples/memdump.raw", "-v", "-printf", "-memmap", "/Users/user/GolandProjects/MemProcFsGolang/libs/memmap.txt")
 	//vmm, err := memprocfs.NewVmm("-device", "/Users/user/Downloads/memdump.raw")
 	//vmm, err := memprocfs.NewVmm("-device", "/Users/user/Downloads/memdump.raw", "-v", "-vv", "-vvv", "-printf")
 
@@ -37,8 +41,13 @@ func main() {
 		fmt.Println(err)
 		return
 	}
+	infoProc, err := vmm.GetProcessInfo(context.TODO(), pid)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
 
-	fmt.Println("info string path kernel: ", infoString)
+	fmt.Println("info string path kernel: ", prettyPrint(infoProc))
 
 	infoString, err = vmm.GetProcessInfoString(context.TODO(), pid, memprocfs.ProcessInformationOptStringPathUserImage)
 	if err != nil {
@@ -159,7 +168,8 @@ func main() {
 		fmt.Println("===== MODULE STRUCT =====", prettyPrint(module))
 	}
 
-	mem, err := vmm.MemRead(explorerPid, 140733155704832, 40)
+	mem := make([]byte, 40)
+	err = vmm.MemRead(explorerPid, 140733155704832, mem)
 
 	if err != nil {
 		fmt.Println(err)
@@ -174,15 +184,15 @@ func main() {
 		fmt.Println(err)
 	}
 	buff := make([]byte, 40)
-	err = task.PrepareRead(context.TODO(), 140733155704832, 5, unsafe.Pointer(&buff[0]))
+	err = task.PrepareRead(context.TODO(), 140733155704832, buff[0:5])
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = task.PrepareRead(context.TODO(), 140733155704832+5, 15, unsafe.Pointer(&buff[5]))
+	err = task.PrepareRead(context.TODO(), 140733155704832+5, buff[5:20])
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = task.PrepareRead(context.TODO(), 140733155704832+20, 20, unsafe.Pointer(&buff[20]))
+	err = task.PrepareRead(context.TODO(), 140733155704832+20, buff[20:40])
 	if err != nil {
 		fmt.Println(err)
 	}

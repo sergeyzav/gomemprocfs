@@ -7,23 +7,14 @@ package memprocfs
 import "C"
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"unsafe"
 )
 
 // Special PID to enable kernel memory access
 const (
 	PidProcessWithKernelMemory = 0x80000000
-)
-
-// Memory read/write flags
-const (
-	VMMDLL_MEM_FLAG_NONE            = 0x00000000
-	VMMDLL_MEM_FLAG_ZEROPAD_ON_FAIL = 0x00000001
-	VMMDLL_MEM_FLAG_CACHE_READ      = 0x00000002
-	VMMDLL_MEM_FLAG_NOCACHE         = 0x00000004
-	VMMDLL_MEM_FLAG_NOCACHEPUT      = 0x00000008
-	VMMDLL_MEM_FLAG_NOPAGING        = 0x00000010
-	VMMDLL_MEM_FLAG_NOPAGING_IO     = 0x00000020
 )
 
 type vmmHandle C.VMM_HANDLE
@@ -34,7 +25,114 @@ type Vmm struct {
 
 var defaultArgs = []string{"-device", "fpga"}
 
-func NewVmm(args ...string) (*Vmm, error) {
+type Option func() []string
+
+func WithDevice(device string) Option {
+	return func() []string {
+		return []string{"-device", device}
+	}
+}
+
+func WithDeviceFPGA() Option {
+	return func() []string {
+		return []string{"-device", "fpga"}
+	}
+}
+
+func WithPrintf() Option {
+	return func() []string {
+		return []string{"-printf"}
+	}
+}
+
+func WithMemMap(filename string) Option {
+	return func() []string {
+		return []string{"-memmap", filename}
+	}
+}
+
+func WithVerbose() Option {
+	return func() []string {
+		return []string{"-v"}
+	}
+}
+func WithPageFile(pageID int, pageFile string) Option {
+	return func() []string {
+		return []string{fmt.Sprintf("-pagefile%d", pageID), pageFile}
+	}
+}
+
+func WithRemote(dsn string) Option {
+	return func() []string {
+		return []string{"-remote", dsn}
+	}
+}
+
+func WithNorefresh() Option {
+	return func() []string {
+		return []string{"-norefresh"}
+	}
+}
+
+func WithDisablePython() Option {
+	return func() []string {
+		return []string{"-disable-python"}
+	}
+}
+
+func WithDisableSymbolServer() Option {
+	return func() []string {
+		return []string{"-disable-symbolserver"}
+	}
+}
+
+func WithDisableSymbols() Option {
+	return func() []string {
+		return []string{"-disable-symbols"}
+	}
+}
+func WithDisableInfoDB() Option {
+	return func() []string {
+		return []string{"-disable-infodb"}
+	}
+}
+func WithWaitInitialize() Option {
+	return func() []string {
+		return []string{"-waitinitialize"}
+	}
+}
+
+func WithVM() Option {
+	return func() []string {
+		return []string{"-vm"}
+	}
+}
+
+func WithVMBasic() Option {
+	return func() []string {
+		return []string{"-vm-basic"}
+	}
+}
+
+func WithVMNested() Option {
+	return func() []string {
+		return []string{"-vm-nested"}
+	}
+}
+
+func WithForensic(lvl int) Option {
+	return func() []string {
+		return []string{"-forensic", strconv.Itoa(lvl)}
+	}
+}
+
+func NewVmm(opts ...Option) (*Vmm, error) {
+	var args []string
+
+	for _, opt := range opts {
+		args = append(args, opt()...)
+	}
+
 	if len(args) == 0 {
 		args = defaultArgs
 	}
@@ -59,14 +157,12 @@ func (v *Vmm) Close() {
 		return
 	}
 
-	go C.VMMDLL_Close(v.handle)
+	C.VMMDLL_Close(v.handle)
 }
 
 func CloseAll() {
 	C.VMMDLL_CloseAll()
 }
-
-// MemReadScatter reads memory in a scattered way
 
 func (v *Vmm) NewScatterTask(pid uint32, flags uint32) (*ScatterTask, error) {
 	return InitializeScatter(v, pid, flags)

@@ -2,6 +2,7 @@ package memprocfs
 
 import (
 	"bytes"
+	"fmt"
 	"unsafe"
 )
 
@@ -11,7 +12,14 @@ func cString(ptr unsafe.Pointer, size int) string {
 	if last == -1 {
 		last = size
 	}
-	return string(bytesArr[:last])
+	s1 := string(bytesArr[:last])
+
+	s2 := unsafe.String((*byte)(ptr), size)
+
+	if s1 != s2 {
+		panic(fmt.Sprintf("%s vs %s", s1, s2))
+	}
+	return s1
 }
 
 func boolToInt(b bool) int {

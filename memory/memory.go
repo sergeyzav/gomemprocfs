@@ -7,7 +7,6 @@ import (
 	"math"
 	"sync"
 	"time"
-	"unsafe"
 )
 
 type unit struct {
@@ -46,7 +45,7 @@ func (m *Memory) Read(ctx context.Context, address uint64, size uint32, tte time
 		buffer:  make([]byte, size),
 	}
 
-	err := m.scatterTask.PrepareRead(ctx, address, size, unsafe.Pointer(&task.buffer[0]))
+	err := m.scatterTask.PrepareRead(ctx, address, task.buffer)
 
 	if err != nil {
 		return nil, err
@@ -64,7 +63,6 @@ func (m *Memory) Read(ctx context.Context, address uint64, size uint32, tte time
 	}
 
 	return result, nil
-
 }
 
 func (m *Memory) ReadUint64(ctx context.Context, address uint64, tte time.Duration) (<-chan uint64, error) {
@@ -265,4 +263,27 @@ func (m *Memory) ReadExecute(ctx context.Context) error {
 
 func (m *Memory) Close(ctx context.Context) error {
 	return m.scatterTask.Close(ctx)
+}
+
+func ReadStruct[T any](ctx context.Context, m *Memory, address uint64, tte time.Duration) (<-chan T, error) {
+	res := make(chan T, 1)
+
+	var t T
+	size := binary.Size(t)
+	bytesResult, err := m.Read(ctx, address, uint32(size), tte)
+
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		defer close(res)
+		for bts := range bytesResult {
+			var rt T
+			binary.Decode(bts, binary.LittleEndian, &rt)
+			res <- rt
+		}
+	}()
+
+	return res, nil
 }
