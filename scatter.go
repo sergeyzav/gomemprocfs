@@ -65,11 +65,11 @@ func (s *ScatterTask) Clear(ctx context.Context) error {
 	}
 }
 
-func (s *ScatterTask) PrepareRead(ctx context.Context, address uint64, size uint32, buffer unsafe.Pointer) error {
+func (s *ScatterTask) PrepareRead(ctx context.Context, addr uint64, p []byte) error {
 	errChan := make(chan error, 1)
 
 	go func() {
-		success := C.VMMDLL_Scatter_PrepareEx(C.VMMDLL_SCATTER_HANDLE(s.handle), C.QWORD(address), C.DWORD(size), C.PBYTE(buffer), nil)
+		success := C.VMMDLL_Scatter_PrepareEx(C.VMMDLL_SCATTER_HANDLE(s.handle), C.QWORD(addr), C.DWORD(len(p)), C.PBYTE(unsafe.Pointer(&p[0])), nil)
 
 		if success == 0 {
 			errChan <- ErrScatterCommandFailed
@@ -107,11 +107,11 @@ func (s *ScatterTask) ExecuteRead(ctx context.Context) error {
 	}
 }
 
-func (s *ScatterTask) PrepareWrite(ctx context.Context, address uint64, size uint32, buffer unsafe.Pointer) error {
+func (s *ScatterTask) PrepareWrite(ctx context.Context, addr uint64, p []byte) error {
 	errChan := make(chan error, 1)
 
 	go func() {
-		success := C.VMMDLL_Scatter_PrepareWriteEx(C.VMMDLL_SCATTER_HANDLE(s.handle), C.QWORD(address), C.PBYTE(buffer), C.DWORD(size))
+		success := C.VMMDLL_Scatter_PrepareWriteEx(C.VMMDLL_SCATTER_HANDLE(s.handle), C.QWORD(addr), C.PBYTE(unsafe.Pointer(&p[0])), C.DWORD(len(p)))
 
 		if success == 0 {
 			errChan <- ErrScatterCommandFailed

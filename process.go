@@ -142,8 +142,8 @@ func newProcessInformationFromC(pInfo C.VMMDLL_PROCESS_INFORMATION) ProcessInfor
 		DwState:       uint32(pInfo.dwState),
 		PaDTB:         uint64(pInfo.paDTB),
 		PaDTB_UserOpt: uint64(pInfo.paDTB_UserOpt),
-		SzName:        cString(unsafe.Pointer(&pInfo.szName), 16),
-		SzNameLong:    cString(unsafe.Pointer(&pInfo.szNameLong), 64),
+		SzName:        C.GoString((*C.char)(unsafe.Pointer(&pInfo.szName))),
+		SzNameLong:    C.GoString((*C.char)(unsafe.Pointer(&pInfo.szNameLong))),
 		Win: struct {
 			VaEPROCESS     uint64
 			VaPEB          uint64
