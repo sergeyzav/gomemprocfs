@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/sergeyzav/memprocfs"
 	"github.com/sergeyzav/memprocfs/memory"
-	"time"
 )
 
 func main() {
@@ -27,7 +28,7 @@ func main() {
 
 	defer vmm.Close()
 
-	pid, err := vmm.GetPidByName(context.TODO(), "chrome.exe")
+	pid, err := vmm.GetPidByName(context.TODO(), "explorer.exe")
 
 	if err != nil {
 		fmt.Println(err)
@@ -220,6 +221,54 @@ func main() {
 	fmt.Println("===== MEMORY READ =====", prettyPrint(<-r1))
 	fmt.Println("===== MEMORY READ =====", prettyPrint(<-r2))
 
+	unloadedModules, err := vmm.GetUnloadedModules(context.TODO(), pid)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== UNLOADED MODULES =====", prettyPrint(unloadedModules))
+	}
+
+	eat, err := vmm.GetEat(context.TODO(), explorerPid, "kernel32.dll")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== EAT (kernel32.dll) ====", prettyPrint(eat))
+	}
+
+	iat, err := vmm.GetIat(context.TODO(), explorerPid, "kernel32.dll")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== IAT (kernel32.dll) ====", prettyPrint(iat))
+	}
+
+	threads, err := vmm.GetThreads(context.TODO(), explorerPid)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== THREADS (explorer.exe) ====", prettyPrint(threads))
+	}
+
+	handles, err := vmm.GetHandles(context.TODO(), explorerPid)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== HANDLES (explorer.exe) ====", prettyPrint(handles))
+	}
+
+	net, err := vmm.GetNet(context.TODO())
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== NETWORK CONNECTIONS =====", prettyPrint(net))
+	}
+
+	services, err := vmm.GetServices(context.TODO())
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== SERVICES =====", prettyPrint(services))
+	}
 }
 
 func prettyPrint(i interface{}) string {
