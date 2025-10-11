@@ -247,6 +247,16 @@ func main() {
 		fmt.Println(err)
 	} else {
 		fmt.Println("===== THREADS (explorer.exe) ====", prettyPrint(threads))
+		if len(threads.Entries) > 0 {
+			firstThread := threads.Entries[0]
+			callstack, err := vmm.GetThreadCallstack(context.TODO(), explorerPid, firstThread.TID, 0)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Printf("===== CALLSTACK (explorer.exe, TID: %d) =====\n", firstThread.TID)
+				fmt.Println(prettyPrint(callstack))
+			}
+		}
 	}
 
 	handles, err := vmm.GetHandles(context.TODO(), explorerPid)
