@@ -296,6 +296,13 @@ func main() {
 			}
 		}
 	}
+
+	physMem, err := vmm.GetPhysMem(context.TODO())
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== PHYSICAL MEMORY MAP =====", prettyPrint(physMem))
+	}
 }
 
 func prettyPrint(i interface{}) string {
