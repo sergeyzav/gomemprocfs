@@ -1925,3 +1925,99 @@ func (vmm *Vmm) GetHeapAlloc(ctx context.Context, pid uint32, heapAddrOrNum uint
 		return result.heapAlloc, result.err
 	}
 }
+
+type ThreadCallstackEntry struct {
+	I              uint32
+	IsRegPresent   bool
+	VaRetAddr      uint64
+	VaRSP          uint64
+	VaBaseSP       uint64
+	FutureUse1     uint32
+	CbDisplacement uint32
+	Module         string
+	Function       string
+}
+
+type ThreadCallstack struct {
+	Version   uint32
+	MultiText []string
+	Entries   []ThreadCallstackEntry
+}
+
+func newThreadCallstackEntryFromC(cEntry *C.VMMDLL_MAP_THREAD_CALLSTACKENTRY) ThreadCallstackEntry {
+	modulePtr := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(cEntry)) + unsafe.Offsetof(cEntry.cbDisplacement) + unsafe.Sizeof(cEntry.cbDisplacement)))
+	module := C.GoString((*C.char)(unsafe.Pointer(modulePtr)))
+
+	functionPtr := *(*uintptr)(unsafe.Pointer(uintptr(unsafe.Pointer(cEntry)) + unsafe.Offsetof(cEntry.cbDisplacement) + unsafe.Sizeof(cEntry.cbDisplacement) + unsafe.Sizeof(uintptr(0))))
+	function := C.GoString((*C.char)(unsafe.Pointer(functionPtr)))
+
+	return ThreadCallstackEntry{
+		I:              uint32(cEntry.i),
+		IsRegPresent:   cEntry.fRegPresent != 0,
+		VaRetAddr:      uint64(cEntry.vaRetAddr),
+		VaRSP:          uint64(cEntry.vaRSP),
+		VaBaseSP:       uint64(cEntry.vaBaseSP),
+		FutureUse1:     uint32(cEntry._FutureUse1),
+		CbDisplacement: uint32(cEntry.cbDisplacement),
+		Module:         module,
+		Function:       function,
+	}
+}
+
+func newThreadCallstackFromC(cCallstack *C.VMMDLL_MAP_THREAD_CALLSTACK) ThreadCallstack {
+	callstack := ThreadCallstack{
+		Version: uint32(cCallstack.dwVersion),
+	}
+
+	if cCallstack.pbMultiText != nil && cCallstack.cbMultiText > 0 {
+		callstack.MultiText = multiString(C.GoBytes(unsafe.Pointer(cCallstack.pbMultiText), C.int(cCallstack.cbMultiText)))
+	}
+
+	count := int(cCallstack.cMap)
+	entriesPtr := afterDWORD(unsafe.Pointer(&cCallstack.cMap))
+	callstack.Entries = make([]ThreadCallstackEntry, count)
+
+	for i, cEntry := range cArray[C.VMMDLL_MAP_THREAD_CALLSTACKENTRY](entriesPtr, count) {
+		callstack.Entries[i] = newThreadCallstackEntryFromC(cEntry)
+	}
+
+	return callstack
+}
+
+func (vmm *Vmm) getThreadCallstack(pid uint32, tid uint32, flags uint32) (*ThreadCallstack, error) {
+	var cCallstackMap C.PVMMDLL_MAP_THREAD_CALLSTACK
+	success := C.VMMDLL_Map_GetThread_CallstackU(C.VMM_HANDLE(vmm.handle), C.DWORD(pid), C.DWORD(tid), C.DWORD(flags), &cCallstackMap)
+	if success == 0 {
+		return nil, fmt.Errorf("failed to get thread callstack for PID: %d, TID: %d", pid, tid)
+	}
+	defer freeMemory(C.PVOID(cCallstackMap))
+
+	if cCallstackMap.dwVersion != C.VMMDLL_MAP_THREAD_CALLSTACK_VERSION {
+		return nil, fmt.Errorf("unsupported thread callstack version")
+	}
+
+	callstack := newThreadCallstackFromC(cCallstackMap)
+	return &callstack, nil
+}
+
+func (vmm *Vmm) GetThreadCallstack(ctx context.Context, pid uint32, tid uint32, flags uint32) (*ThreadCallstack, error) {
+	resultChan := make(chan struct {
+		callstack *ThreadCallstack
+		err       error
+	}, 1)
+
+	go func() {
+		callstack, err := vmm.getThreadCallstack(pid, tid, flags)
+		resultChan <- struct {
+			callstack *ThreadCallstack
+			err       error
+		}{callstack, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-resultChan:
+		return result.callstack, result.err
+	}
+}
