@@ -2021,3 +2021,79 @@ func (vmm *Vmm) GetThreadCallstack(ctx context.Context, pid uint32, tid uint32, 
 		return result.callstack, result.err
 	}
 }
+
+type PhysMemEntry struct {
+	Pa uint64
+	Cb uint64
+}
+
+type PhysMem struct {
+	Version   uint32
+	Reserved1 [5]uint32
+	Entries   []PhysMemEntry
+}
+
+func newPhysMemEntryFromC(cEntry *C.VMMDLL_MAP_PHYSMEMENTRY) PhysMemEntry {
+	return PhysMemEntry{
+		Pa: uint64(cEntry.pa),
+		Cb: uint64(cEntry.cb),
+	}
+}
+
+func newPhysMemFromC(cPhysMem *C.VMMDLL_MAP_PHYSMEM) PhysMem {
+	physMem := PhysMem{
+		Version: uint32(cPhysMem.dwVersion),
+	}
+
+	for i := 0; i < 5; i++ {
+		physMem.Reserved1[i] = uint32(cPhysMem._Reserved1[i])
+	}
+
+	count := int(cPhysMem.cMap)
+	entriesPtr := afterDWORD(unsafe.Pointer(&cPhysMem.cMap))
+	physMem.Entries = make([]PhysMemEntry, count)
+
+	for i, cEntry := range cArray[C.VMMDLL_MAP_PHYSMEMENTRY](entriesPtr, count) {
+		physMem.Entries[i] = newPhysMemEntryFromC(cEntry)
+	}
+
+	return physMem
+}
+
+func (vmm *Vmm) getPhysMem() (*PhysMem, error) {
+	var cPhysMemMap C.PVMMDLL_MAP_PHYSMEM
+	success := C.VMMDLL_Map_GetPhysMem(C.VMM_HANDLE(vmm.handle), &cPhysMemMap)
+	if success == 0 {
+		return nil, fmt.Errorf("failed to get physical memory map")
+	}
+	defer freeMemory(C.PVOID(cPhysMemMap))
+
+	if cPhysMemMap.dwVersion != C.VMMDLL_MAP_PHYSMEM_VERSION {
+		return nil, fmt.Errorf("unsupported physical memory map version")
+	}
+
+	physMem := newPhysMemFromC(cPhysMemMap)
+	return &physMem, nil
+}
+
+func (vmm *Vmm) GetPhysMem(ctx context.Context) (*PhysMem, error) {
+	resultChan := make(chan struct {
+		physMem *PhysMem
+		err     error
+	}, 1)
+
+	go func() {
+		physMem, err := vmm.getPhysMem()
+		resultChan <- struct {
+			physMem *PhysMem
+			err     error
+		}{physMem, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-resultChan:
+		return result.physMem, result.err
+	}
+}
