@@ -269,6 +269,23 @@ func main() {
 	} else {
 		fmt.Println("===== SERVICES =====", prettyPrint(services))
 	}
+
+	heap, err := vmm.GetHeap(context.TODO(), explorerPid)
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Println("===== HEAP (explorer.exe) =====", prettyPrint(heap))
+		if len(heap.Entries) > 0 {
+			firstHeap := heap.Entries[0]
+			heapAllocs, err := vmm.GetHeapAlloc(context.TODO(), explorerPid, firstHeap.Va)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Printf("===== HEAP ALLOCS (explorer.exe, heap: 0x%x) =====\n", firstHeap.Va)
+				fmt.Println(prettyPrint(heapAllocs))
+			}
+		}
+	}
 }
 
 func prettyPrint(i interface{}) string {

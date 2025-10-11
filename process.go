@@ -1751,3 +1751,177 @@ func (vmm *Vmm) GetServices(ctx context.Context) (*Service, error) {
 		return result.service, result.err
 	}
 }
+
+// HeapType represents the VMMDLL_HEAP_TP enum.
+type HeapType uint32
+
+const (
+	HeapTypeUnknown HeapType = iota
+	HeapTypeFhdLfhBackend
+	HeapTypeFhdLfhFrontend
+	HeapTypeFhdHeap
+	HeapTypeFhdVs
+	HeapTypeNt
+	HeapTypeSegment
+	HeapTypeMax
+)
+
+// HeapEntry corresponds to VMMDLL_MAP_HEAPENTRY.
+type HeapEntry struct {
+	Va      uint64
+	Tp      HeapType
+	F32     bool
+	IHeap   uint32
+	HeapNum uint32
+}
+
+// Heap corresponds to VMMDLL_MAP_HEAP.
+type Heap struct {
+	Version   uint32
+	Reserved1 [7]uint32
+	Entries   []HeapEntry
+}
+
+func newHeapEntryFromC(cEntry *C.VMMDLL_MAP_HEAPENTRY) HeapEntry {
+	return HeapEntry{
+		Va:      uint64(cEntry.va),
+		Tp:      HeapType(cEntry.tp),
+		F32:     cEntry.f32 != 0,
+		IHeap:   uint32(cEntry.iHeap),
+		HeapNum: uint32(cEntry.dwHeapNum),
+	}
+}
+
+func newHeapFromC(cHeap *C.VMMDLL_MAP_HEAP) Heap {
+	heap := Heap{
+		Version: uint32(cHeap.dwVersion),
+	}
+
+	for i := 0; i < 7; i++ {
+		heap.Reserved1[i] = uint32(cHeap._Reserved1[i])
+	}
+
+	count := int(cHeap.cMap)
+	entriesPtr := afterDWORD(unsafe.Pointer(&cHeap.cMap))
+	heap.Entries = make([]HeapEntry, count)
+
+	for i, cEntry := range cArray[C.VMMDLL_MAP_HEAPENTRY](entriesPtr, count) {
+		heap.Entries[i] = newHeapEntryFromC(cEntry)
+	}
+
+	return heap
+}
+
+func (vmm *Vmm) getHeap(pid uint32) (*Heap, error) {
+	var cHeapMap C.PVMMDLL_MAP_HEAP
+	success := C.VMMDLL_Map_GetHeap(C.VMM_HANDLE(vmm.handle), C.DWORD(pid), &cHeapMap)
+	if success == 0 {
+		return nil, fmt.Errorf("failed to get heap map for process %d", pid)
+	}
+	defer freeMemory(C.PVOID(cHeapMap))
+
+	if cHeapMap.dwVersion != C.VMMDLL_MAP_HEAP_VERSION {
+		return nil, fmt.Errorf("unsupported heap version")
+	}
+
+	heap := newHeapFromC(cHeapMap)
+	return &heap, nil
+}
+
+func (vmm *Vmm) GetHeap(ctx context.Context, pid uint32) (*Heap, error) {
+	resultChan := make(chan struct {
+		heap *Heap
+		err  error
+	}, 1)
+
+	go func() {
+		heap, err := vmm.getHeap(pid)
+		resultChan <- struct {
+			heap *Heap
+			err  error
+		}{heap, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-resultChan:
+		return result.heap, result.err
+	}
+}
+
+type HeapAllocEntry struct {
+	Va uint64
+	Cb uint64
+}
+
+type HeapAlloc struct {
+	Version   uint32
+	Reserved1 [7]uint32
+	Entries   []HeapAllocEntry
+}
+
+func newHeapAllocEntryFromC(cEntry *C.VMMDLL_MAP_HEAPALLOCENTRY) HeapAllocEntry {
+	return HeapAllocEntry{
+		Va: uint64(cEntry.va),
+		Cb: uint64(cEntry.cb),
+	}
+}
+
+func newHeapAllocFromC(cHeapAlloc *C.VMMDLL_MAP_HEAPALLOC) HeapAlloc {
+	heapAlloc := HeapAlloc{
+		Version: uint32(cHeapAlloc.dwVersion),
+	}
+
+	for i := 0; i < 7; i++ {
+		heapAlloc.Reserved1[i] = uint32(cHeapAlloc._Reserved1[i])
+	}
+
+	count := int(cHeapAlloc.cMap)
+	entriesPtr := afterDWORD(unsafe.Pointer(&cHeapAlloc.cMap))
+	heapAlloc.Entries = make([]HeapAllocEntry, count)
+
+	for i, cEntry := range cArray[C.VMMDLL_MAP_HEAPALLOCENTRY](entriesPtr, count) {
+		heapAlloc.Entries[i] = newHeapAllocEntryFromC(cEntry)
+	}
+
+	return heapAlloc
+}
+
+func (vmm *Vmm) getHeapAlloc(pid uint32, heapAddrOrNum uint64) (*HeapAlloc, error) {
+	var cHeapAllocMap C.PVMMDLL_MAP_HEAPALLOC
+	success := C.VMMDLL_Map_GetHeapAlloc(C.VMM_HANDLE(vmm.handle), C.DWORD(pid), C.QWORD(heapAddrOrNum), &cHeapAllocMap)
+	if success == 0 {
+		return nil, fmt.Errorf("failed to get heap allocations for process %d, heap %x", pid, heapAddrOrNum)
+	}
+	defer freeMemory(C.PVOID(cHeapAllocMap))
+
+	if cHeapAllocMap.dwVersion != C.VMMDLL_MAP_HEAPALLOC_VERSION {
+		return nil, fmt.Errorf("unsupported heap alloc version")
+	}
+
+	heapAlloc := newHeapAllocFromC(cHeapAllocMap)
+	return &heapAlloc, nil
+}
+
+func (vmm *Vmm) GetHeapAlloc(ctx context.Context, pid uint32, heapAddrOrNum uint64) (*HeapAlloc, error) {
+	resultChan := make(chan struct {
+		heapAlloc *HeapAlloc
+		err       error
+	}, 1)
+
+	go func() {
+		heapAlloc, err := vmm.getHeapAlloc(pid, heapAddrOrNum)
+		resultChan <- struct {
+			heapAlloc *HeapAlloc
+			err       error
+		}{heapAlloc, err}
+	}()
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case result := <-resultChan:
+		return result.heapAlloc, result.err
+	}
+}
