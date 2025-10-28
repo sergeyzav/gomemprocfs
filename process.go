@@ -11,6 +11,7 @@ const (
 	processInformationVersion = 7
 )
 
+// MemoryModel corresponds to the VMMDLL_MEMORYMODEL_TP enum.
 type MemoryModel uint32
 
 const (
@@ -21,6 +22,7 @@ const (
 	MemoryModelARM64  MemoryModel = 4
 )
 
+// SystemType corresponds to the VMMDLL_SYSTEM_TP enum.
 type SystemType uint32
 
 const (
@@ -74,6 +76,68 @@ type ProcessInfo struct {
 	DTB         uint64
 	UserDTB     uint64
 	Win         WinProcessInfo
+}
+
+// ModuleType corresponds to the VMMDLL_MODULE_TP enum.
+type ModuleType uint32
+
+const (
+	ModuleTypeUnknown ModuleType = 0
+	ModuleTypeNormal  ModuleType = 1
+	ModuleTypeData    ModuleType = 2
+)
+
+// Module contains information about a single loaded module.
+type Module struct {
+	BaseAddress  uint64
+	EntryPoint   uint64
+	ImageSize    uint32
+	IsWow64      bool
+	Name         string
+	FullName     string
+	Type         ModuleType
+	FileSize     uint32
+	SectionCount uint32
+	ExportCount  uint32
+	ImportCount  uint32
+}
+
+// ModuleList contains a list of loaded modules for a process.
+type ModuleList struct {
+	Version   uint32
+	Count     uint32
+	MultiText string
+	Modules   []Module
+}
+
+// moduleEntryInternal mirrors the C struct VMMDLL_MAP_MODULEENTRY
+type moduleEntryInternal struct {
+	VaBase         uint64
+	VaEntry        uint64
+	CbImageSize    uint32
+	FWoW64         bool
+	UszText        uintptr
+	_              [2]uint32 // _Reserved3, _Reserved4
+	UszFullName    uintptr
+	Tp             ModuleType
+	CbFileSizeRaw  uint32
+	CSection       uint32
+	CEAT           uint32
+	CIAT           uint32
+	_              uint32 // _Reserved2
+	Reserved       [3]uint64
+	PExDebugInfo   uintptr
+	PExVersionInfo uintptr
+}
+
+// moduleListInternal mirrors the C struct VMMDLL_MAP_MODULE
+type moduleListInternal struct {
+	Version     uint32
+	_           [5]uint32 // Reserved
+	PbMultiText uintptr
+	CbMultiText uint32
+	CMap        uint32
+	// pMap (FAM) starts here
 }
 
 // Name returns the process name as a Go string.
@@ -131,19 +195,14 @@ func (vmm *Vmm) GetProcessInfo(pid uint32) (*ProcessInfo, error) {
 	}
 
 	return &processInfo, nil
-
 }
 
 func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
-
 	var moduleListPtr *moduleListInternal
-
 	success := vmmMapGetModuleU(vmm.vmmHandle, pid, &moduleListPtr, 0)
-
 	if !success {
 		return nil, fmt.Errorf("failed to get module list for PID %d", pid)
 	}
-
 	defer vmm.free(uintptr(unsafe.Pointer(moduleListPtr)))
 
 	internalEntries := FAM[moduleListInternal, moduleEntryInternal](moduleListPtr, int(moduleListPtr.CMap))
@@ -158,35 +217,20 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 	}
 
 	for i, entry := range internalEntries {
-
 		result.Modules[i] = Module{
-
-			BaseAddress: entry.VaBase,
-
-			EntryPoint: entry.VaEntry,
-
-			ImageSize: entry.CbImageSize,
-
-			IsWow64: entry.FWoW64,
-
-			Name: cStringToGo(entry.UszText),
-			//Name:           cStringToGo(moduleListPtr.PbMultiText + entry.UszText),
-
-			FullName: cStringToGo(entry.UszFullName),
-
-			Type: entry.Tp,
-
-			FileSize: entry.CbFileSizeRaw,
-
+			BaseAddress:  entry.VaBase,
+			EntryPoint:   entry.VaEntry,
+			ImageSize:    entry.CbImageSize,
+			IsWow64:      entry.FWoW64,
+			Name:         cStringToGo(entry.UszText),
+			FullName:     cStringToGo(entry.UszFullName),
+			Type:         entry.Tp,
+			FileSize:     entry.CbFileSizeRaw,
 			SectionCount: entry.CSection,
-
-			ExportCount: entry.CEAT,
-
-			ImportCount: entry.CIAT,
+			ExportCount:  entry.CEAT,
+			ImportCount:  entry.CIAT,
 		}
-
 	}
 
 	return result, nil
-
 }
