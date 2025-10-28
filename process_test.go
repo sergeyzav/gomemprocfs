@@ -168,3 +168,35 @@ func TestGetHandleList(t *testing.T) {
 
 	t.Logf("Found %d handles for PID %d", len(handleList.Handles), pid)
 }
+
+func TestGetEatList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("Failed to get PID for explorer.exe: %v", err)
+	}
+
+	eatList, err := vmm.GetEatList(pid, "kernel32.dll")
+	if err != nil {
+		t.Fatalf("GetEatList failed: %v", err)
+	}
+
+	if len(eatList.Entries) != int(eatList.Count) {
+		t.Errorf("EAT entry count mismatch: expected %d, got %d", eatList.Count, len(eatList.Entries))
+	}
+
+	found := false
+	for _, entry := range eatList.Entries {
+		if entry.FunctionName == "CreateFileA" {
+			found = true
+			t.Logf("Found CreateFileA at address: 0x%x", entry.FunctionAddress)
+			break
+		}
+	}
+
+	if !found {
+		t.Error("CreateFileA not found in kernel32.dll exports")
+	}
+}
