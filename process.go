@@ -283,6 +283,57 @@ type vadListInternal struct {
 	// pMap (FAM) starts here
 }
 
+// Handle represents a single handle in a process.
+type Handle struct {
+	Object              uint64
+	Handle              uint32
+	GrantedAccess       uint32
+	TypeIndex           uint32
+	HandleCount         uint64
+	PointerCount        uint64
+	ObjectCreateInfo    uint64
+	SecurityDescriptor  uint64
+	Text                string
+	PID                 uint32
+	PoolTag             uint32
+	Type                string
+}
+
+// HandleList contains a list of handles for a process.
+type HandleList struct {
+	Version   uint32
+	Count     uint32
+	MultiText string
+	Handles   []Handle
+}
+
+// handleEntryInternal mirrors the C struct VMMDLL_MAP_HANDLEENTRY
+type handleEntryInternal struct {
+	VaObject             uint64
+	DwHandle             uint32
+	AccessAndType        uint32 // Combined field for GrantedAccess (24 bits) and IType (8 bits)
+	QwHandleCount        uint64
+	QwPointerCount       uint64
+	VaObjectCreateInfo   uint64
+	VaSecurityDescriptor uint64
+	UszText              uintptr
+	_                    uint32 // FutureUse2
+	DwPID                uint32
+	DwPoolTag            uint32
+	_                    [7]uint32 // FutureUse
+	UszType              uintptr
+}
+
+// handleListInternal mirrors the C struct VMMDLL_MAP_HANDLE
+type handleListInternal struct {
+	Version     uint32
+	_           [5]uint32 // Reserved1
+	PbMultiText uintptr
+	CbMultiText uint32
+	CMap        uint32
+	// pMap (FAM) starts here
+}
+
 // Name returns the process name as a Go string.
 func (pi *ProcessInfo) Name() string {
 	return string(bytes.TrimRight(pi.NameRaw[:], "\x00"))
@@ -472,6 +523,45 @@ func (vmm *Vmm) GetThreadList(pid uint32) (*ThreadList, error) {
 			WaitReason:         entry.BWaitReason,
 			ImpersonationToken: entry.VaImpersonationToken,
 			Win32StartAddress:  entry.VaWin32StartAddress,
+		}
+	}
+
+	return result, nil
+}
+
+func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
+	var handleListPtr *handleListInternal
+	success := vmmMapGetHandleU(vmm.vmmHandle, pid, &handleListPtr)
+	if !success {
+		return nil, fmt.Errorf("failed to get handle list for PID %d", pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(handleListPtr)))
+
+	internalEntries := FAM[handleListInternal, handleEntryInternal](handleListPtr, int(handleListPtr.CMap))
+
+	multiTextSlice := unsafe.Slice((*byte)(unsafe.Pointer(handleListPtr.PbMultiText)), handleListPtr.CbMultiText)
+
+	result := &HandleList{
+		Version:   handleListPtr.Version,
+		Count:     handleListPtr.CMap,
+		MultiText: string(multiTextSlice),
+		Handles:   make([]Handle, len(internalEntries)),
+	}
+
+	for i, entry := range internalEntries {
+		result.Handles[i] = Handle{
+			Object:             entry.VaObject,
+			Handle:             entry.DwHandle,
+			GrantedAccess:      entry.AccessAndType & 0xFFFFFF,   // Lower 24 bits
+			TypeIndex:          entry.AccessAndType >> 24,        // Upper 8 bits
+			HandleCount:        entry.QwHandleCount,
+			PointerCount:       entry.QwPointerCount,
+			ObjectCreateInfo:   entry.VaObjectCreateInfo,
+			SecurityDescriptor: entry.VaSecurityDescriptor,
+			Text:               cStringToGo(entry.UszText),
+			PID:                entry.DwPID,
+			PoolTag:            entry.DwPoolTag,
+			Type:               cStringToGo(entry.UszType),
 		}
 	}
 

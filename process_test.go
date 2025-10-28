@@ -139,3 +139,32 @@ func TestGetVadList(t *testing.T) {
 
 	t.Logf("Found %d VADs for PID %d", len(vadList.Vads), pid)
 }
+
+func TestGetHandleList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	handleList, err := vmm.GetHandleList(pid)
+	if err != nil {
+		t.Fatalf("GetHandleList failed: %v", err)
+	}
+
+	if handleList.Version != MapHandleVersion {
+		t.Errorf("HandleList version mismatch: expected %d, got %d", MapHandleVersion, handleList.Version)
+	}
+
+	if len(handleList.Handles) != int(handleList.Count) {
+		t.Errorf("Handle count mismatch: expected %d, got %d", handleList.Count, len(handleList.Handles))
+	}
+
+	if len(handleList.Handles) == 0 {
+		t.Fatal("Handle list is empty")
+	}
+
+	t.Logf("Found %d handles for PID %d", len(handleList.Handles), pid)
+}
