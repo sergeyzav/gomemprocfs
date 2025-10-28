@@ -254,22 +254,22 @@ type VadList struct {
 
 // vadEntryInternal mirrors the C struct VMMDLL_MAP_VADENTRY
 type vadEntryInternal struct {
-	VaStart        uint64
-	VaEnd          uint64
-	VaVad          uint64
-	Dw0            uint32 // Bitfield
-	Dw1            uint32 // Bitfield
-	U2             uint32
-	CbPrototypePte uint32
-	VaPrototypePte uint64
-	VaSubsection   uint64
-	UszText        uintptr
-	_              uint32 // FutureUse1
-	_              uint32 // Reserved1
-	VaFileObject   uint64
-	CVadExPages    uint32
+	VaStart         uint64
+	VaEnd           uint64
+	VaVad           uint64
+	Dw0             uint32 // Bitfield
+	Dw1             uint32 // Bitfield
+	U2              uint32
+	CbPrototypePte  uint32
+	VaPrototypePte  uint64
+	VaSubsection    uint64
+	UszText         uintptr
+	_               uint32 // FutureUse1
+	_               uint32 // Reserved1
+	VaFileObject    uint64
+	CVadExPages     uint32
 	CVadExPagesBase uint32
-	_              uint64 // Reserved2
+	_               uint64 // Reserved2
 }
 
 // vadListInternal mirrors the C struct VMMDLL_MAP_VAD
@@ -285,18 +285,18 @@ type vadListInternal struct {
 
 // Handle represents a single handle in a process.
 type Handle struct {
-	Object              uint64
-	Handle              uint32
-	GrantedAccess       uint32
-	TypeIndex           uint32
-	HandleCount         uint64
-	PointerCount        uint64
-	ObjectCreateInfo    uint64
-	SecurityDescriptor  uint64
-	Text                string
-	PID                 uint32
-	PoolTag             uint32
-	Type                string
+	Object             uint64
+	Handle             uint32
+	GrantedAccess      uint32
+	TypeIndex          uint32
+	HandleCount        uint64
+	PointerCount       uint64
+	ObjectCreateInfo   uint64
+	SecurityDescriptor uint64
+	Text               string
+	PID                uint32
+	PoolTag            uint32
+	Type               string
 }
 
 // HandleList contains a list of handles for a process.
@@ -529,6 +529,97 @@ func (vmm *Vmm) GetThreadList(pid uint32) (*ThreadList, error) {
 	return result, nil
 }
 
+type EatList struct {
+	Version                    uint32
+	OrdinalBase                uint32
+	NumberOfNames              uint32
+	NumberOfFunctions          uint32
+	NumberOfForwardedFunctions uint32
+	ModuleBaseAddress          uint64
+	AddressOfFunctions         uint64
+	AddressOfNames             uint64
+	MultiText                  string
+	Count                      uint32
+	Entries                    []EatEntry
+}
+
+// EatEntry represents a single entry in the Export Address Table.
+type EatEntry struct {
+	FunctionAddress       uint64
+	Ordinal               uint32
+	FunctionName          string
+	ForwardedFunctionName string
+	OFunctionsArray       uint32
+	ONamesArray           uint32
+}
+
+// eatEntryInternal mirrors the C struct VMMDLL_MAP_EATENTRY.
+type eatEntryInternal struct {
+	VaFunction           uint64
+	DwOrdinal            uint32
+	OFunctionsArray      uint32
+	ONamesArray          uint32
+	_                    uint32
+	UszFunction          uintptr
+	UszForwardedFunction uintptr
+}
+
+// eatMapInternal mirrors the C struct VMMDLL_MAP_EAT.
+type eatMapInternal struct {
+	DwVersion                   uint32
+	DwOrdinalBase               uint32
+	CNumberOfNames              uint32
+	CNumberOfFunctions          uint32
+	CNumberOfForwardedFunctions uint32
+	_                           [3]uint32
+	VaModuleBase                uint64
+	VaAddressOfFunctions        uint64
+	VaAddressOfNames            uint64
+	PbMultiText                 uintptr
+	CbMultiText                 uint32
+	CMap                        uint32
+	// pMap is a flexible array member, handled via pointer arithmetic.
+}
+
+// GetEatList retrieves the Export Address Table (EAT) for a given module in a process.
+func (vmm *Vmm) GetEatList(pid uint32, moduleName string) (*EatList, error) {
+
+	var pEatMap *eatMapInternal
+	success := vmmMapGetEATU(vmm.vmmHandle, pid, moduleName, &pEatMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetEATU failed for module '%s' in PID %d", moduleName, pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pEatMap)))
+
+	entriesInternal := FAM[eatMapInternal, eatEntryInternal](pEatMap, int(pEatMap.CMap))
+
+	entries := make([]EatEntry, pEatMap.CMap)
+	for i := 0; i < int(pEatMap.CMap); i++ {
+		entries[i] = EatEntry{
+			FunctionAddress:       entriesInternal[i].VaFunction,
+			Ordinal:               entriesInternal[i].DwOrdinal,
+			FunctionName:          cStringToGo(entriesInternal[i].UszFunction),
+			ForwardedFunctionName: cStringToGo(entriesInternal[i].UszForwardedFunction),
+			OFunctionsArray:       entriesInternal[i].OFunctionsArray,
+			ONamesArray:           entriesInternal[i].ONamesArray,
+		}
+	}
+
+	return &EatList{
+		Version:                    pEatMap.DwVersion,
+		OrdinalBase:                pEatMap.DwOrdinalBase,
+		NumberOfNames:              pEatMap.CNumberOfNames,
+		NumberOfFunctions:          pEatMap.CNumberOfFunctions,
+		NumberOfForwardedFunctions: pEatMap.CNumberOfForwardedFunctions,
+		ModuleBaseAddress:          pEatMap.VaModuleBase,
+		AddressOfFunctions:         pEatMap.VaAddressOfFunctions,
+		AddressOfNames:             pEatMap.VaAddressOfNames,
+		MultiText:                  string(unsafe.Slice((*byte)(unsafe.Pointer(pEatMap.PbMultiText)), pEatMap.CbMultiText)),
+		Count:                      pEatMap.CMap,
+		Entries:                    entries,
+	}, nil
+}
+
 func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
 	var handleListPtr *handleListInternal
 	success := vmmMapGetHandleU(vmm.vmmHandle, pid, &handleListPtr)
@@ -552,8 +643,8 @@ func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
 		result.Handles[i] = Handle{
 			Object:             entry.VaObject,
 			Handle:             entry.DwHandle,
-			GrantedAccess:      entry.AccessAndType & 0xFFFFFF,   // Lower 24 bits
-			TypeIndex:          entry.AccessAndType >> 24,        // Upper 8 bits
+			GrantedAccess:      entry.AccessAndType & 0xFFFFFF, // Lower 24 bits
+			TypeIndex:          entry.AccessAndType >> 24,      // Upper 8 bits
 			HandleCount:        entry.QwHandleCount,
 			PointerCount:       entry.QwPointerCount,
 			ObjectCreateInfo:   entry.VaObjectCreateInfo,
