@@ -148,10 +148,13 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 
 	internalEntries := FAM[moduleListInternal, moduleEntryInternal](moduleListPtr, int(moduleListPtr.CMap))
 
+	multiTextSlice := unsafe.Slice((*byte)(unsafe.Pointer(moduleListPtr.PbMultiText)), moduleListPtr.CbMultiText)
+
 	result := &ModuleList{
-		Version: moduleListPtr.Version,
-		Count:   moduleListPtr.CMap,
-		Modules: make([]Module, len(internalEntries)),
+		Version:   moduleListPtr.Version,
+		Count:     moduleListPtr.CMap,
+		MultiText: string(multiTextSlice),
+		Modules:   make([]Module, len(internalEntries)),
 	}
 
 	for i, entry := range internalEntries {
@@ -164,11 +167,12 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 
 			ImageSize: entry.CbImageSize,
 
-			IsWow64: entry.FWoW64 != 0,
+			IsWow64: entry.FWoW64,
 
-			Name: cStringToGo(moduleListPtr.PbMultiText + entry.UszText),
+			Name: cStringToGo(entry.UszText),
+			//Name:           cStringToGo(moduleListPtr.PbMultiText + entry.UszText),
 
-			FullName: cStringToGo(moduleListPtr.PbMultiText + entry.UszFullName),
+			FullName: cStringToGo(entry.UszFullName),
 
 			Type: entry.Tp,
 

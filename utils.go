@@ -1,6 +1,8 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"unsafe"
+)
 
 // cStringToGo converts a null-terminated C string to a Go string.
 func cStringToGo(ptr uintptr) string {
