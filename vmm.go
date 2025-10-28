@@ -1,132 +1,36 @@
 package memprocfs
 
-/*
-#include "vmmdll.h"
-#include "leechcore.h"
-*/
 import "C"
 import (
 	"errors"
 	"fmt"
-	"strconv"
+	"syscall"
 	"unsafe"
-)
 
-// Special PID to enable kernel memory access
-const (
-	PidProcessWithKernelMemory = 0x80000000
+	"github.com/ebitengine/purego"
 )
-
-type vmmHandle C.VMM_HANDLE
 
 type Vmm struct {
-	handle vmmHandle
+	libHandle uintptr
+	vmmHandle uintptr
 }
 
-var defaultArgs = []string{"-device", "fpga"}
+var (
+	vmmInitialize                  func(argc int32, args []*byte) uintptr
+	vmmClose                       func(vmmHandle uintptr) uintptr
+	vmmMemSize                     func(handle uintptr) uint64
+	vmmMemFree                     func(handle uintptr) uintptr
+	vmmConfigGet                   func(vmmHandle uintptr, option uint64, value *uint64) bool
+	vmmConfigSet                   func(vmmHandle uintptr, option uint64, value uint64) bool
+	vmmInitializePlugins           func(vmmHandle uintptr) bool
+	vmmPidGetFromName              func(vmmHandle uintptr, name string, pid *uint32) bool
+	vmmProcessGetInformationString func(vmmHandle uintptr, pid uint32, opt uint32) uintptr
+	vmmProcessGetInformation       func(vmmHandle uintptr, pid uint32, pProcessInformation unsafe.Pointer, pcbProcessInformation *uint32) bool
+	vmmMemRead                     func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmMapGetModuleU               func(vmmHandle uintptr, pid uint32, ppModuleMap **moduleListInternal, flags uint32) bool
+)
 
-type Option func() []string
-
-func WithDevice(device string) Option {
-	return func() []string {
-		return []string{"-device", device}
-	}
-}
-
-func WithDeviceFPGA() Option {
-	return func() []string {
-		return []string{"-device", "fpga"}
-	}
-}
-
-func WithPrintf() Option {
-	return func() []string {
-		return []string{"-printf"}
-	}
-}
-
-func WithMemMap(filename string) Option {
-	return func() []string {
-		return []string{"-memmap", filename}
-	}
-}
-
-func WithVerbose() Option {
-	return func() []string {
-		return []string{"-v"}
-	}
-}
-func WithPageFile(pageID int, pageFile string) Option {
-	return func() []string {
-		return []string{fmt.Sprintf("-pagefile%d", pageID), pageFile}
-	}
-}
-
-func WithRemote(dsn string) Option {
-	return func() []string {
-		return []string{"-remote", dsn}
-	}
-}
-
-func WithNorefresh() Option {
-	return func() []string {
-		return []string{"-norefresh"}
-	}
-}
-
-func WithDisablePython() Option {
-	return func() []string {
-		return []string{"-disable-python"}
-	}
-}
-
-func WithDisableSymbolServer() Option {
-	return func() []string {
-		return []string{"-disable-symbolserver"}
-	}
-}
-
-func WithDisableSymbols() Option {
-	return func() []string {
-		return []string{"-disable-symbols"}
-	}
-}
-func WithDisableInfoDB() Option {
-	return func() []string {
-		return []string{"-disable-infodb"}
-	}
-}
-func WithWaitInitialize() Option {
-	return func() []string {
-		return []string{"-waitinitialize"}
-	}
-}
-
-func WithVM() Option {
-	return func() []string {
-		return []string{"-vm"}
-	}
-}
-
-func WithVMBasic() Option {
-	return func() []string {
-		return []string{"-vm-basic"}
-	}
-}
-
-func WithVMNested() Option {
-	return func() []string {
-		return []string{"-vm-nested"}
-	}
-}
-
-func WithForensic(lvl int) Option {
-	return func() []string {
-		return []string{"-forensic", strconv.Itoa(lvl)}
-	}
-}
-
-func NewVmm(opts ...Option) (*Vmm, error) {
+func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 	var args []string
 
 	for _, opt := range opts {
@@ -136,48 +40,81 @@ func NewVmm(opts ...Option) (*Vmm, error) {
 	if len(args) == 0 {
 		args = defaultArgs
 	}
-	cArgs := make([]C.LPCSTR, len(args))
-	for i, s := range args {
-		cArgs[i] = C.CString(s)
-		defer C.free(unsafe.Pointer(cArgs[i]))
+
+	lib, err := openLibrary(libPath)
+
+	if err != nil {
+		return nil, err
 	}
 
-	argc := C.DWORD(len(args))
-
-	handle := C.VMMDLL_Initialize(argc, &cArgs[0])
-	if handle == nil {
-		return nil, errors.New("VMM initialization failed")
+	if loadFunctions(lib) != nil {
+		return nil, err
 	}
 
-	return &Vmm{handle: vmmHandle(handle)}, nil
-}
-
-func (v *Vmm) Close() {
-	if v.handle == nil {
-		return
+	argsBytes := make([]*byte, len(args))
+	for i, arg := range args {
+		argsBytes[i], err = syscall.BytePtrFromString(arg)
 	}
 
-	C.VMMDLL_Close(v.handle)
-}
+	vmmHandle := vmmInitialize(int32(len(args)), argsBytes)
 
-func CloseAll() {
-	C.VMMDLL_CloseAll()
-}
-
-func (v *Vmm) NewScatterTask(pid uint32, flags uint32) (*ScatterTask, error) {
-	return InitializeScatter(v, pid, flags)
-}
-
-func freeMemory(ptr C.PVOID) {
-	if ptr != nil {
-		C.VMMDLL_MemFree(ptr)
-	}
-}
-
-func getMemSize(ptr C.PVOID) uint64 {
-	if ptr == nil {
-		return 0
+	if vmmHandle == 0 {
+		return nil, errors.New("failed to initialize Vmm")
 	}
 
-	return uint64(C.VMMDLL_MemSize(ptr))
+	vmm := &Vmm{
+		libHandle: lib,
+		vmmHandle: vmmHandle,
+	}
+
+	if err := vmm.InitializePlugins(); err != nil {
+		vmm.Close()
+		return nil, fmt.Errorf("failed to initialize plugins: %w", err)
+	}
+
+	return vmm, nil
+}
+
+func (vmm *Vmm) InitializePlugins() error {
+	if !vmmInitializePlugins(vmm.vmmHandle) {
+		return errors.New("failed to initialize plugins")
+	}
+	return nil
+}
+
+func (vmm *Vmm) Close() error {
+	result := vmmClose(vmm.vmmHandle)
+
+	if result == 0 {
+		return errors.New("failed to close Vmm")
+	}
+
+	return nil
+}
+
+func (vmm *Vmm) free(recourse uintptr) error {
+	result := vmmMemFree(recourse)
+
+	if result != 0 {
+		return errors.New("failed to free memory")
+	}
+
+	return nil
+}
+
+func loadFunctions(lib uintptr) error {
+	purego.RegisterLibFunc(&vmmInitialize, lib, "VMMDLL_Initialize")
+	purego.RegisterLibFunc(&vmmClose, lib, "VMMDLL_Close")
+	purego.RegisterLibFunc(&vmmMemSize, lib, "VMMDLL_MemSize")
+	purego.RegisterLibFunc(&vmmMemFree, lib, "VMMDLL_MemFree")
+	purego.RegisterLibFunc(&vmmConfigGet, lib, "VMMDLL_ConfigGet")
+	purego.RegisterLibFunc(&vmmConfigSet, lib, "VMMDLL_ConfigSet")
+	purego.RegisterLibFunc(&vmmInitializePlugins, lib, "VMMDLL_InitializePlugins")
+	purego.RegisterLibFunc(&vmmPidGetFromName, lib, "VMMDLL_PidGetFromName")
+	purego.RegisterLibFunc(&vmmProcessGetInformationString, lib, "VMMDLL_ProcessGetInformationString")
+	purego.RegisterLibFunc(&vmmProcessGetInformation, lib, "VMMDLL_ProcessGetInformation")
+	purego.RegisterLibFunc(&vmmMemRead, lib, "VMMDLL_MemRead")
+	purego.RegisterLibFunc(&vmmMapGetModuleU, lib, "VMMDLL_Map_GetModuleU")
+
+	return nil
 }

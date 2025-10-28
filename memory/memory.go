@@ -1,12 +1,15 @@
 package memory
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
-	"github.com/sergeyzav/memprocfs"
+	"fmt"
 	"math"
 	"sync"
 	"time"
+
+	"github.com/sergeyzav/memprocfs"
 )
 
 type unit struct {
@@ -65,11 +68,10 @@ func (m *Memory) Read(ctx context.Context, address uint64, size uint32, tte time
 	return result, nil
 }
 
-func (m *Memory) ReadUint64(ctx context.Context, address uint64, tte time.Duration) (<-chan uint64, error) {
-	res := make(chan uint64, 1)
+func readAndConvert[T any](m *Memory, ctx context.Context, address uint64, size uint32, tte time.Duration, convert func([]byte) T) (<-chan T, error) {
+	res := make(chan T, 1)
 
-	bytesResult, err := m.Read(ctx, address, 8, tte)
-
+	bytesResult, err := m.Read(ctx, address, size, tte)
 	if err != nil {
 		return nil, err
 	}
@@ -77,165 +79,51 @@ func (m *Memory) ReadUint64(ctx context.Context, address uint64, tte time.Durati
 	go func() {
 		defer close(res)
 		for bts := range bytesResult {
-			res <- binary.LittleEndian.Uint64(bts)
+			res <- convert(bts)
 		}
 	}()
 
 	return res, nil
+}
+
+func (m *Memory) ReadUint64(ctx context.Context, address uint64, tte time.Duration) (<-chan uint64, error) {
+	return readAndConvert(m, ctx, address, 8, tte, binary.LittleEndian.Uint64)
 }
 
 func (m *Memory) ReadUint32(ctx context.Context, address uint64, tte time.Duration) (<-chan uint32, error) {
-	res := make(chan uint32, 1)
-
-	bytesResult, err := m.Read(ctx, address, 4, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			res <- binary.LittleEndian.Uint32(bts)
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 4, tte, binary.LittleEndian.Uint32)
 }
 
 func (m *Memory) ReadInt32(ctx context.Context, address uint64, tte time.Duration) (<-chan int32, error) {
-	res := make(chan int32, 1)
-
-	bytesResult, err := m.Read(ctx, address, 4, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			res <- int32(binary.LittleEndian.Uint32(bts))
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 4, tte, func(b []byte) int32 { return int32(binary.LittleEndian.Uint32(b)) })
 }
 
 func (m *Memory) ReadInt64(ctx context.Context, address uint64, tte time.Duration) (<-chan int64, error) {
-	res := make(chan int64, 1)
-
-	bytesResult, err := m.Read(ctx, address, 8, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			res <- int64(binary.LittleEndian.Uint64(bts))
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 8, tte, func(b []byte) int64 { return int64(binary.LittleEndian.Uint64(b)) })
 }
 
 func (m *Memory) ReadUint16(ctx context.Context, address uint64, tte time.Duration) (<-chan uint16, error) {
-	res := make(chan uint16, 1)
-
-	bytesResult, err := m.Read(ctx, address, 2, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			res <- binary.LittleEndian.Uint16(bts)
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 2, tte, binary.LittleEndian.Uint16)
 }
 
 func (m *Memory) ReadUint8(ctx context.Context, address uint64, tte time.Duration) (<-chan uint8, error) {
-	res := make(chan uint8, 1)
-
-	bytesResult, err := m.Read(ctx, address, 1, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			res <- bts[0]
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 1, tte, func(b []byte) uint8 { return b[0] })
 }
 
 func (m *Memory) ReadBool(ctx context.Context, address uint64, tte time.Duration) (<-chan bool, error) {
-	res := make(chan bool, 1)
-
-	bytesResult, err := m.Read(ctx, address, 1, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			res <- bts[0] > 0
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 1, tte, func(b []byte) bool { return b[0] > 0 })
 }
 
 func (m *Memory) ReadFloat32(ctx context.Context, address uint64, tte time.Duration) (<-chan float32, error) {
-	res := make(chan float32, 1)
-
-	bytesResult, err := m.Read(ctx, address, 4, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			u32 := binary.LittleEndian.Uint32(bts)
-			res <- math.Float32frombits(u32)
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 4, tte, func(b []byte) float32 {
+		return math.Float32frombits(binary.LittleEndian.Uint32(b))
+	})
 }
 
 func (m *Memory) ReadFloat64(ctx context.Context, address uint64, tte time.Duration) (<-chan float64, error) {
-	res := make(chan float64, 1)
-
-	bytesResult, err := m.Read(ctx, address, 8, tte)
-
-	if err != nil {
-		return nil, err
-	}
-
-	go func() {
-		defer close(res)
-		for bts := range bytesResult {
-			u64 := binary.LittleEndian.Uint64(bts)
-			res <- math.Float64frombits(u64)
-		}
-	}()
-
-	return res, nil
+	return readAndConvert(m, ctx, address, 8, tte, func(b []byte) float64 {
+		return math.Float64frombits(binary.LittleEndian.Uint64(b))
+	})
 }
 
 func (m *Memory) ReadExecute(ctx context.Context) error {
@@ -270,6 +158,9 @@ func ReadStruct[T any](ctx context.Context, m *Memory, address uint64, tte time.
 
 	var t T
 	size := binary.Size(t)
+	if size < 0 {
+		return nil, fmt.Errorf("invalid type size")
+	}
 	bytesResult, err := m.Read(ctx, address, uint32(size), tte)
 
 	if err != nil {
@@ -280,8 +171,9 @@ func ReadStruct[T any](ctx context.Context, m *Memory, address uint64, tte time.
 		defer close(res)
 		for bts := range bytesResult {
 			var rt T
-			binary.Decode(bts, binary.LittleEndian, &rt)
-			res <- rt
+			if err := binary.Read(bytes.NewReader(bts), binary.LittleEndian, &rt); err == nil {
+				res <- rt
+			}
 		}
 	}()
 
