@@ -140,6 +140,83 @@ type moduleListInternal struct {
 	// pMap (FAM) starts here
 }
 
+// Thread represents a single thread in a process.
+type Thread struct {
+	TID                uint32
+	PID                uint32
+	ExitStatus         uint32
+	State              byte
+	Running            byte
+	Priority           byte
+	BasePriority       byte
+	ETHREAD            uint64
+	Teb                uint64
+	CreateTime         uint64
+	ExitTime           uint64
+	StartAddress       uint64
+	StackBaseUser      uint64
+	StackLimitUser     uint64
+	StackBaseKernel    uint64
+	StackLimitKernel   uint64
+	TrapFrame          uint64
+	RIP                uint64
+	RSP                uint64
+	Affinity           uint64
+	UserTime           uint32
+	KernelTime         uint32
+	SuspendCount       byte
+	WaitReason         byte
+	ImpersonationToken uint64
+	Win32StartAddress  uint64
+}
+
+// ThreadList contains a list of threads for a process.
+type ThreadList struct {
+	Version uint32
+	Count   uint32
+	Threads []Thread
+}
+
+// threadEntryInternal mirrors the C struct VMMDLL_MAP_THREADENTRY
+type threadEntryInternal struct {
+	DwTID                uint32
+	DwPID                uint32
+	DwExitStatus         uint32
+	BState               byte
+	BRunning             byte
+	BPriority            byte
+	BBasePriority        byte
+	VaETHREAD            uint64
+	VaTeb                uint64
+	FtCreateTime         uint64
+	FtExitTime           uint64
+	VaStartAddress       uint64
+	VaStackBaseUser      uint64
+	VaStackLimitUser     uint64
+	VaStackBaseKernel    uint64
+	VaStackLimitKernel   uint64
+	VaTrapFrame          uint64
+	VaRIP                uint64
+	VaRSP                uint64
+	QwAffinity           uint64
+	DwUserTime           uint32
+	DwKernelTime         uint32
+	BSuspendCount        byte
+	BWaitReason          byte
+	_                    [2]byte    // FutureUse1
+	_                    [11]uint32 // FutureUse2
+	VaImpersonationToken uint64
+	VaWin32StartAddress  uint64
+}
+
+// threadListInternal mirrors the C struct VMMDLL_MAP_THREAD
+type threadListInternal struct {
+	Version uint32
+	_       [8]uint32 // Reserved
+	CMap    uint32
+	// pMap (FAM) starts here
+}
+
 // Name returns the process name as a Go string.
 func (pi *ProcessInfo) Name() string {
 	return string(bytes.TrimRight(pi.NameRaw[:], "\x00"))
@@ -229,6 +306,56 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 			SectionCount: entry.CSection,
 			ExportCount:  entry.CEAT,
 			ImportCount:  entry.CIAT,
+		}
+	}
+
+	return result, nil
+}
+
+func (vmm *Vmm) GetThreadList(pid uint32) (*ThreadList, error) {
+	var threadListPtr *threadListInternal
+	success := vmmMapGetThread(vmm.vmmHandle, pid, &threadListPtr)
+	if !success {
+		return nil, fmt.Errorf("failed to get thread list for PID %d", pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(threadListPtr)))
+
+	internalEntries := FAM[threadListInternal, threadEntryInternal](threadListPtr, int(threadListPtr.CMap))
+
+	result := &ThreadList{
+		Version: threadListPtr.Version,
+		Count:   threadListPtr.CMap,
+		Threads: make([]Thread, len(internalEntries)),
+	}
+
+	for i, entry := range internalEntries {
+		result.Threads[i] = Thread{
+			TID:                entry.DwTID,
+			PID:                entry.DwPID,
+			ExitStatus:         entry.DwExitStatus,
+			State:              entry.BState,
+			Running:            entry.BRunning,
+			Priority:           entry.BPriority,
+			BasePriority:       entry.BBasePriority,
+			ETHREAD:            entry.VaETHREAD,
+			Teb:                entry.VaTeb,
+			CreateTime:         entry.FtCreateTime,
+			ExitTime:           entry.FtExitTime,
+			StartAddress:       entry.VaStartAddress,
+			StackBaseUser:      entry.VaStackBaseUser,
+			StackLimitUser:     entry.VaStackLimitUser,
+			StackBaseKernel:    entry.VaStackBaseKernel,
+			StackLimitKernel:   entry.VaStackLimitKernel,
+			TrapFrame:          entry.VaTrapFrame,
+			RIP:                entry.VaRIP,
+			RSP:                entry.VaRSP,
+			Affinity:           entry.QwAffinity,
+			UserTime:           entry.DwUserTime,
+			KernelTime:         entry.DwKernelTime,
+			SuspendCount:       entry.BSuspendCount,
+			WaitReason:         entry.BWaitReason,
+			ImpersonationToken: entry.VaImpersonationToken,
+			Win32StartAddress:  entry.VaWin32StartAddress,
 		}
 	}
 
