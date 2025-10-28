@@ -29,9 +29,9 @@ var (
 	vmmMemRead                     func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
 	vmmMapGetModuleU               func(vmmHandle uintptr, pid uint32, ppModuleMap **moduleListInternal, flags uint32) bool
 		vmmMapGetThread  func(vmmHandle uintptr, pid uint32, ppThreadMap **threadListInternal) bool
-		vmmMapGetVadU    func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
-	)
-
+			vmmMapGetVadU    func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
+			vmmMapGetHandleU func(vmmHandle uintptr, pid uint32, ppHandleMap **handleListInternal) bool
+		)
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 	var args []string
 
@@ -119,6 +119,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetModuleU, lib, "VMMDLL_Map_GetModuleU")
 	purego.RegisterLibFunc(&vmmMapGetThread, lib, "VMMDLL_Map_GetThread")
 	purego.RegisterLibFunc(&vmmMapGetVadU, lib, "VMMDLL_Map_GetVadU")
+	purego.RegisterLibFunc(&vmmMapGetHandleU, lib, "VMMDLL_Map_GetHandleU")
 
 	return nil
 }
