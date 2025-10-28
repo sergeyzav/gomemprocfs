@@ -28,10 +28,12 @@ var (
 	vmmProcessGetInformation       func(vmmHandle uintptr, pid uint32, pProcessInformation unsafe.Pointer, pcbProcessInformation *uint32) bool
 	vmmMemRead                     func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
 	vmmMapGetModuleU               func(vmmHandle uintptr, pid uint32, ppModuleMap **moduleListInternal, flags uint32) bool
-		vmmMapGetThread  func(vmmHandle uintptr, pid uint32, ppThreadMap **threadListInternal) bool
-			vmmMapGetVadU    func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
-			vmmMapGetHandleU func(vmmHandle uintptr, pid uint32, ppHandleMap **handleListInternal) bool
-		)
+	vmmMapGetThread                func(vmmHandle uintptr, pid uint32, ppThreadMap **threadListInternal) bool
+	vmmMapGetVadU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
+	vmmMapGetHandleU               func(vmmHandle uintptr, pid uint32, ppHandleMap **handleListInternal) bool
+	vmmWinRegHiveList              func(vmmHandle uintptr, pHives *registryHiveInfoInternal, cHives uint32, pcHives *uint32) bool
+)
+
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 	var args []string
 
@@ -120,6 +122,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetThread, lib, "VMMDLL_Map_GetThread")
 	purego.RegisterLibFunc(&vmmMapGetVadU, lib, "VMMDLL_Map_GetVadU")
 	purego.RegisterLibFunc(&vmmMapGetHandleU, lib, "VMMDLL_Map_GetHandleU")
+	purego.RegisterLibFunc(&vmmWinRegHiveList, lib, "VMMDLL_WinReg_HiveList")
 
 	return nil
 }

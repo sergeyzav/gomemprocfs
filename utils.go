@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"strings"
 	"unsafe"
 )
 
@@ -23,4 +24,8 @@ func cStringToGo(ptr uintptr) string {
 	}
 
 	return string(unsafe.Slice((*byte)(unsafe.Pointer(ptr)), length))
+}
+
+func byteSliceToString(b []byte) string {
+	return strings.TrimRight(string(b), "\x00")
 }
