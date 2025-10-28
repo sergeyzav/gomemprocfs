@@ -217,6 +217,72 @@ type threadListInternal struct {
 	// pMap (FAM) starts here
 }
 
+// Vad represents a single Virtual Address Descriptor.
+type Vad struct {
+	Start            uint64
+	End              uint64
+	VadAddress       uint64
+	VadType          uint32
+	Protection       uint32
+	IsImage          bool
+	IsFile           bool
+	IsPageFile       bool
+	IsPrivateMemory  bool
+	IsTeb            bool
+	IsStack          bool
+	HeapNum          uint32
+	IsHeap           bool
+	CommitCharge     uint32
+	IsCommitted      bool
+	PrototypePteSize uint32
+	PrototypePte     uint64
+	Subsection       uint64
+	Text             string
+	FileObject       uint64
+	VadExPages       uint32
+	VadExPagesBase   uint32
+}
+
+// VadList contains a list of VADs for a process.
+type VadList struct {
+	Version   uint32
+	PageCount uint32
+	Count     uint32
+	MultiText string
+	Vads      []Vad
+}
+
+// vadEntryInternal mirrors the C struct VMMDLL_MAP_VADENTRY
+type vadEntryInternal struct {
+	VaStart        uint64
+	VaEnd          uint64
+	VaVad          uint64
+	Dw0            uint32 // Bitfield
+	Dw1            uint32 // Bitfield
+	U2             uint32
+	CbPrototypePte uint32
+	VaPrototypePte uint64
+	VaSubsection   uint64
+	UszText        uintptr
+	_              uint32 // FutureUse1
+	_              uint32 // Reserved1
+	VaFileObject   uint64
+	CVadExPages    uint32
+	CVadExPagesBase uint32
+	_              uint64 // Reserved2
+}
+
+// vadListInternal mirrors the C struct VMMDLL_MAP_VAD
+type vadListInternal struct {
+	Version     uint32
+	_           [4]uint32 // Reserved1
+	CPage       uint32
+	PbMultiText uintptr
+	CbMultiText uint32
+	CMap        uint32
+	// pMap (FAM) starts here
+}
+
 // Name returns the process name as a Go string.
 func (pi *ProcessInfo) Name() string {
 	return string(bytes.TrimRight(pi.NameRaw[:], "\x00"))
@@ -306,6 +372,56 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 			SectionCount: entry.CSection,
 			ExportCount:  entry.CEAT,
 			ImportCount:  entry.CIAT,
+		}
+	}
+
+	return result, nil
+}
+
+func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
+	var vadListPtr *vadListInternal
+	success := vmmMapGetVadU(vmm.vmmHandle, pid, identifyModules, &vadListPtr)
+	if !success {
+		return nil, fmt.Errorf("failed to get VAD list for PID %d", pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(vadListPtr)))
+
+	internalEntries := FAM[vadListInternal, vadEntryInternal](vadListPtr, int(vadListPtr.CMap))
+
+	multiTextSlice := unsafe.Slice((*byte)(unsafe.Pointer(vadListPtr.PbMultiText)), vadListPtr.CbMultiText)
+
+	result := &VadList{
+		Version:   vadListPtr.Version,
+		PageCount: vadListPtr.CPage,
+		Count:     vadListPtr.CMap,
+		MultiText: string(multiTextSlice),
+		Vads:      make([]Vad, len(internalEntries)),
+	}
+
+	for i, entry := range internalEntries {
+		result.Vads[i] = Vad{
+			Start:            entry.VaStart,
+			End:              entry.VaEnd,
+			VadAddress:       entry.VaVad,
+			VadType:          entry.Dw0 & 0x7,
+			Protection:       (entry.Dw0 >> 3) & 0x1F,
+			IsImage:          (entry.Dw0>>8)&1 != 0,
+			IsFile:           (entry.Dw0>>9)&1 != 0,
+			IsPageFile:       (entry.Dw0>>10)&1 != 0,
+			IsPrivateMemory:  (entry.Dw0>>11)&1 != 0,
+			IsTeb:            (entry.Dw0>>12)&1 != 0,
+			IsStack:          (entry.Dw0>>13)&1 != 0,
+			HeapNum:          (entry.Dw0 >> 16) & 0x7F,
+			IsHeap:           (entry.Dw0>>23)&1 != 0,
+			CommitCharge:     entry.Dw1 & 0x7FFFFFFF,
+			IsCommitted:      (entry.Dw1>>31)&1 != 0,
+			PrototypePteSize: entry.CbPrototypePte,
+			PrototypePte:     entry.VaPrototypePte,
+			Subsection:       entry.VaSubsection,
+			Text:             cStringToGo(entry.UszText),
+			FileObject:       entry.VaFileObject,
+			VadExPages:       entry.CVadExPages,
+			VadExPagesBase:   entry.CVadExPagesBase,
 		}
 	}
 

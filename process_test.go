@@ -110,3 +110,32 @@ func TestGetThreadList(t *testing.T) {
 
 	t.Logf("Found %d threads for PID %d", len(threadList.Threads), pid)
 }
+
+func TestGetVadList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	vadList, err := vmm.GetVadList(pid, true)
+	if err != nil {
+		t.Fatalf("GetVadList failed: %v", err)
+	}
+
+	if vadList.Version != MapVADVersion {
+		t.Errorf("VadList version mismatch: expected %d, got %d", MapVADVersion, vadList.Version)
+	}
+
+	if len(vadList.Vads) != int(vadList.Count) {
+		t.Errorf("VAD count mismatch: expected %d, got %d", vadList.Count, len(vadList.Vads))
+	}
+
+	if len(vadList.Vads) == 0 {
+		t.Fatal("VAD list is empty")
+	}
+
+	t.Logf("Found %d VADs for PID %d", len(vadList.Vads), pid)
+}
