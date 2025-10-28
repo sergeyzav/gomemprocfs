@@ -81,3 +81,32 @@ func TestGetModuleList(t *testing.T) {
 		t.Errorf("Module count mismatch: expected %d, got %d", moduleList.Count, len(moduleList.Modules))
 	}
 }
+
+func TestGetThreadList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	threadList, err := vmm.GetThreadList(pid)
+	if err != nil {
+		t.Fatalf("GetThreadList failed: %v", err)
+	}
+
+	if threadList.Version != MapThreadVersion {
+		t.Errorf("ThreadList version mismatch: expected %d, got %d", MapThreadVersion, threadList.Version)
+	}
+
+	if len(threadList.Threads) != int(threadList.Count) {
+		t.Errorf("Thread count mismatch: expected %d, got %d", threadList.Count, len(threadList.Threads))
+	}
+
+	if len(threadList.Threads) == 0 {
+		t.Fatal("Thread list is empty")
+	}
+
+	t.Logf("Found %d threads for PID %d", len(threadList.Threads), pid)
+}
