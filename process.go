@@ -870,3 +870,95 @@ func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string) (*Module, error) 
 		ImportCount:  pModuleEntry.CIAT,
 	}, nil
 }
+
+// PteType corresponds to the VMMDLL_PTE_TP enum.
+type PteType uint32
+
+const (
+	PteTypeNA         PteType = 0
+	PteTypeHardware   PteType = 1
+	PteTypeTransition PteType = 2
+	PteTypePrototype  PteType = 3
+	PteTypeDemandZero PteType = 4
+	PteTypeCompressed PteType = 5
+	PteTypePageFile   PteType = 6
+	PteTypeFile       PteType = 7
+)
+
+// pteEntryInternal mirrors the C struct VMMDLL_MAP_PTEENTRY
+type pteEntryInternal struct {
+	VaBase      uint64
+	CPages      uint64
+	FPage       uint64 // Bitfield for page flags
+	FWoW64      uint32 // BOOL
+	_FutureUse1 uint32
+	UszText     uintptr
+	_Reserved1  uint32
+	CSoftware   uint32
+}
+
+// PteEntry represents a single Page Table Entry.
+type PteEntry struct {
+	BaseAddress   uint64
+	PageCount     uint64
+	PageFlags     uint64
+	IsWow64       bool
+	Name          string
+	SoftwareCount uint32
+}
+
+// pteListInternal mirrors the C struct VMMDLL_MAP_PTE
+type pteListInternal struct {
+	Version     uint32
+	_           [5]uint32 // Reserved1
+	PbMultiText uintptr
+	CbMultiText uint32
+	CMap        uint32
+	// pMap (FAM) starts here
+}
+
+// PteList contains a list of Page Table Entries for a process.
+type PteList struct {
+	Version   uint32
+	Count     uint32
+	MultiText string
+	Entries   []PteEntry
+}
+
+// GetPteList retrieves the Page Table Entries (PTEs) for a given process.
+func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
+	var pPteMap *pteListInternal
+	success := vmmMapGetPteU(vmm.vmmHandle, pid, identifyModules, &pPteMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetPteU failed for PID %d", pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pPteMap)))
+
+	if pPteMap == nil || pPteMap.CMap == 0 {
+		return &PteList{
+			Version:   pPteMap.Version,
+			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pPteMap.PbMultiText)), pPteMap.CbMultiText)),
+		}, nil
+	}
+
+	entriesInternal := FAM[pteListInternal, pteEntryInternal](pPteMap, int(pPteMap.CMap))
+
+	entries := make([]PteEntry, pPteMap.CMap)
+	for i, entry := range entriesInternal {
+		entries[i] = PteEntry{
+			BaseAddress:   entry.VaBase,
+			PageCount:     entry.CPages,
+			PageFlags:     entry.FPage,
+			IsWow64:       entry.FWoW64 != 0,
+			Name:          cStringToGo(entry.UszText),
+			SoftwareCount: entry.CSoftware,
+		}
+	}
+
+	return &PteList{
+		Version:   pPteMap.Version,
+		Count:     pPteMap.CMap,
+		MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pPteMap.PbMultiText)), pPteMap.CbMultiText)),
+		Entries:   entries,
+	}, nil
+}
