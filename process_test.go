@@ -200,3 +200,43 @@ func TestGetEatList(t *testing.T) {
 		t.Error("CreateFileA not found in kernel32.dll exports")
 	}
 }
+
+func TestGetIatList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("Failed to get PID for explorer.exe: %v", err)
+	}
+
+	iatList, err := vmm.GetIatList(pid, "user32.dll")
+	if err != nil {
+		t.Fatalf("GetIatList failed: %v", err)
+	}
+
+	if iatList.Version != MapIATVersion {
+		t.Errorf("IatList version mismatch: expected %d, got %d", MapIATVersion, iatList.Version)
+	}
+
+	if len(iatList.Entries) != int(iatList.Count) {
+		t.Errorf("IAT entry count mismatch: expected %d, got %d", iatList.Count, len(iatList.Entries))
+	}
+
+	if iatList.ModuleBaseAddress == 0 {
+		t.Error("ModuleBaseAddress is zero")
+	}
+
+	found := false
+	for _, entry := range iatList.Entries {
+		if entry.FunctionName == "NtQuerySystemInformation" {
+			found = true
+			t.Logf("Found NtQuerySystemInformation at address: 0x%x", entry.FunctionAddress)
+			break
+		}
+	}
+
+	if !found {
+		t.Error("NtQuerySystemInformation not found in ntdll.dll imports")
+	}
+}

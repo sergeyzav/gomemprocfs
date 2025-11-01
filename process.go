@@ -583,7 +583,6 @@ type eatMapInternal struct {
 
 // GetEatList retrieves the Export Address Table (EAT) for a given module in a process.
 func (vmm *Vmm) GetEatList(pid uint32, moduleName string) (*EatList, error) {
-
 	var pEatMap *eatMapInternal
 	success := vmmMapGetEATU(vmm.vmmHandle, pid, moduleName, &pEatMap)
 	if !success {
@@ -657,4 +656,108 @@ func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
 	}
 
 	return result, nil
+}
+
+// IatThunk represents the Thunk data for an IAT entry.
+type IatThunk struct {
+	Is32Bit               bool
+	Hint                  uint16
+	RvaFirstThunk         uint32
+	RvaOriginalFirstThunk uint32
+	RvaNameModule         uint32
+	RvaNameFunction       uint32
+}
+
+// IatEntry represents a single entry in the Import Address Table.
+type IatEntry struct {
+	FunctionAddress uint64
+	FunctionName    string
+	ModuleName      string
+	Thunk           IatThunk
+}
+
+// IatList represents the Import Address Table for a module.
+type IatList struct {
+	Version           uint32
+	ModuleBaseAddress uint64
+	Count             uint32
+	MultiText         string
+	Entries           []IatEntry
+}
+
+// iatThunkInternal mirrors the nested Thunk struct in VMMDLL_MAP_IATENTRY.
+type iatThunkInternal struct {
+	F32                   bool
+	Hint                  uint16
+	_                     uint16 // Reserved1
+	RvaFirstThunk         uint32
+	RvaOriginalFirstThunk uint32
+	RvaNameModule         uint32
+	RvaNameFunction       uint32
+}
+
+// iatEntryInternal mirrors the C struct VMMDLL_MAP_IATENTRY.
+type iatEntryInternal struct {
+	VaFunction  uint64
+	UszFunction uintptr
+	_           [2]uint32 // _FutureUse1, _FutureUse2
+	UszModule   uintptr
+	Thunk       iatThunkInternal
+}
+
+// iatMapInternal mirrors the C struct VMMDLL_MAP_IAT.
+type iatMapInternal struct {
+	DwVersion    uint32
+	_            [5]uint32 // Reserved
+	VaModuleBase uint64
+	PbMultiText  uintptr
+	CbMultiText  uint32
+	CMap         uint32
+	// pMap is a flexible array member, handled via pointer arithmetic.
+}
+
+// GetIatList retrieves the Import Address Table (IAT) for a given module in a process.
+func (vmm *Vmm) GetIatList(pid uint32, moduleName string) (*IatList, error) {
+
+	var pIatMap *iatMapInternal
+	success := vmmMapGetIATU(vmm.vmmHandle, pid, moduleName, &pIatMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetIATU failed for module '%s' in PID %d", moduleName, pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pIatMap)))
+
+	if pIatMap == nil || pIatMap.CMap == 0 {
+		return &IatList{
+			Version:           pIatMap.DwVersion,
+			ModuleBaseAddress: pIatMap.VaModuleBase,
+			MultiText:         string(unsafe.Slice((*byte)(unsafe.Pointer(pIatMap.PbMultiText)), pIatMap.CbMultiText)),
+		}, nil
+	}
+
+	entriesInternal := FAM[iatMapInternal, iatEntryInternal](pIatMap, int(pIatMap.CMap))
+
+	entries := make([]IatEntry, pIatMap.CMap)
+	for i := 0; i < int(pIatMap.CMap); i++ {
+		entries[i] = IatEntry{
+			FunctionAddress: entriesInternal[i].VaFunction,
+			FunctionName:    cStringToGo(entriesInternal[i].UszFunction),
+			ModuleName:      cStringToGo(entriesInternal[i].UszModule),
+			Thunk: IatThunk{
+				Is32Bit:               entriesInternal[i].Thunk.F32,
+				Hint:                  entriesInternal[i].Thunk.Hint,
+				RvaFirstThunk:         entriesInternal[i].Thunk.RvaFirstThunk,
+				RvaOriginalFirstThunk: entriesInternal[i].Thunk.RvaOriginalFirstThunk,
+				RvaNameModule:         entriesInternal[i].Thunk.RvaNameModule,
+				RvaNameFunction:       entriesInternal[i].Thunk.RvaNameFunction,
+			},
+		}
+	}
+
+	return &IatList{
+		Version:           pIatMap.DwVersion,
+		ModuleBaseAddress: pIatMap.VaModuleBase,
+		Count:             pIatMap.CMap,
+		MultiText:         string(unsafe.Slice((*byte)(unsafe.Pointer(pIatMap.PbMultiText)), pIatMap.CbMultiText)),
+		Entries:           entries,
+	}, nil
 }
