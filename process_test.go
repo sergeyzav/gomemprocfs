@@ -365,4 +365,51 @@ func TestGetHeapList(t *testing.T) {
 	}
 
 	t.Logf("Found %d heap entries and %d heap segments for PID %d", len(heapList.Entries), len(heapList.Segments), pid)
+
+}
+
+func TestGetHeapAllocList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	heapList, err := vmm.GetHeapList(pid)
+
+	if err != nil {
+		t.Fatalf("GetHeapList failed: %v", err)
+	}
+
+	if len(heapList.Entries) == 0 {
+
+		t.Fatal("Heap list is empty, cannot test heap allocations")
+
+	}
+
+	heapAddress := heapList.Entries[0].Address
+
+	heapAllocList, err := vmm.GetHeapAllocList(pid, heapAddress)
+
+	if err != nil {
+		t.Fatalf("GetHeapAllocList failed: %v", err)
+	}
+
+	if heapAllocList.Version != MapHeapAllocVersion {
+		t.Errorf("HeapAllocList version mismatch: expected %d, got %d", MapHeapAllocVersion, heapAllocList.Version)
+	}
+
+	if len(heapAllocList.Entries) != int(heapAllocList.Count) {
+		t.Errorf("Heap allocation count mismatch: expected %d, got %d", heapAllocList.Count, len(heapAllocList.Entries))
+	}
+
+	if len(heapAllocList.Entries) == 0 {
+		t.Fatal("Heap allocation list is empty")
+	}
+
+	t.Logf("Found %d heap allocations for PID %d, heap 0x%x", len(heapAllocList.Entries), pid, heapAddress)
+
 }
