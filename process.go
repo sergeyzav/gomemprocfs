@@ -842,3 +842,31 @@ func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 		Modules:   entries,
 	}, nil
 }
+
+// GetModuleByName retrieves a single module by its name for a given process.
+func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string) (*Module, error) {
+	var pModuleEntry *moduleEntryInternal
+	success := vmmMapGetModuleFromNameU(vmm.vmmHandle, pid, moduleName, &pModuleEntry, 0)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetModuleFromNameU failed for module '%s' in PID %d", moduleName, pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pModuleEntry)))
+
+	if pModuleEntry == nil {
+		return nil, fmt.Errorf("module '%s' not found in PID %d", moduleName, pid)
+	}
+
+	return &Module{
+		BaseAddress:  pModuleEntry.VaBase,
+		EntryPoint:   pModuleEntry.VaEntry,
+		ImageSize:    pModuleEntry.CbImageSize,
+		IsWow64:      pModuleEntry.FWoW64,
+		Name:         cStringToGo(pModuleEntry.UszText),
+		FullName:     cStringToGo(pModuleEntry.UszFullName),
+		Type:         pModuleEntry.Tp,
+		FileSize:     pModuleEntry.CbFileSizeRaw,
+		SectionCount: pModuleEntry.CSection,
+		ExportCount:  pModuleEntry.CEAT,
+		ImportCount:  pModuleEntry.CIAT,
+	}, nil
+}
