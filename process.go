@@ -962,3 +962,118 @@ func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 		Entries:   entries,
 	}, nil
 }
+
+// netAddrInternal mirrors the nested address struct in VMMDLL_MAP_NETENTRY
+type netAddrInternal struct {
+	FValid    uint32 // BOOL
+	_Reserved uint16
+	Port      uint16
+	PbAddr    [16]byte
+	UszText   uintptr
+}
+
+// netEntryInternal mirrors the C struct VMMDLL_MAP_NETENTRY
+type netEntryInternal struct {
+	DwPID       uint32
+	DwState     uint32
+	_           [3]uint16 // _FutureUse3
+	AF          uint16    // address family (IPv4/IPv6)
+	Src         netAddrInternal
+	Dst         netAddrInternal
+	VaObj       uint64
+	FtTime      uint64
+	DwPoolTag   uint32
+	_FutureUse4 uint32
+	UszText     uintptr
+	_           [4]uint32 // _FutureUse2
+}
+
+// NetAddr represents a single network address.
+type NetAddr struct {
+	Valid   bool
+	Port    uint16
+	Address [16]byte
+	Text    string
+}
+
+// NetEntry represents a single network connection entry.
+type NetEntry struct {
+	PID           uint32
+	State         uint32
+	AddressFamily uint16
+	Src           NetAddr
+	Dst           NetAddr
+	Object        uint64
+	Timestamp     uint64
+	PoolTag       uint32
+	Text          string
+}
+
+// netListInternal mirrors the C struct VMMDLL_MAP_NET
+type netListInternal struct {
+	Version     uint32
+	_           uint32 // Reserved1
+	PbMultiText uintptr
+	CbMultiText uint32
+	CMap        uint32
+	// pMap (FAM) starts here
+}
+
+// NetList contains a list of network connections for a process.
+type NetList struct {
+	Version   uint32
+	Count     uint32
+	MultiText string
+	Entries   []NetEntry
+}
+
+// GetNetList retrieves the network connections for a given process.
+func (vmm *Vmm) GetNetList() (*NetList, error) {
+	var pNetMap *netListInternal
+	success := vmmMapGetNetU(vmm.vmmHandle, &pNetMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetNetU failed")
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pNetMap)))
+
+	if pNetMap == nil || pNetMap.CMap == 0 {
+		return &NetList{
+			Version:   pNetMap.Version,
+			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pNetMap.PbMultiText)), pNetMap.CbMultiText)),
+		}, nil
+	}
+
+	entriesInternal := FAM[netListInternal, netEntryInternal](pNetMap, int(pNetMap.CMap))
+
+	entries := make([]NetEntry, pNetMap.CMap)
+	for i, entry := range entriesInternal {
+		entries[i] = NetEntry{
+			PID:           entry.DwPID,
+			State:         entry.DwState,
+			AddressFamily: entry.AF,
+			Src: NetAddr{
+				Valid:   entry.Src.FValid != 0,
+				Port:    entry.Src.Port,
+				Address: entry.Src.PbAddr,
+				Text:    cStringToGo(entry.Src.UszText),
+			},
+			Dst: NetAddr{
+				Valid:   entry.Dst.FValid != 0,
+				Port:    entry.Dst.Port,
+				Address: entry.Dst.PbAddr,
+				Text:    cStringToGo(entry.Dst.UszText),
+			},
+			Object:    entry.VaObj,
+			Timestamp: entry.FtTime,
+			PoolTag:   entry.DwPoolTag,
+			Text:      cStringToGo(entry.UszText),
+		}
+	}
+
+	return &NetList{
+		Version:   pNetMap.Version,
+		Count:     pNetMap.CMap,
+		MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pNetMap.PbMultiText)), pNetMap.CbMultiText)),
+		Entries:   entries,
+	}, nil
+}
