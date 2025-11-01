@@ -1091,15 +1091,15 @@ const (
 type HeapSegmentType uint16
 
 const (
-	HeapSegmentNA        HeapSegmentType = 0
-	HeapSegmentNtSegment HeapSegmentType = 1
-	HeapSegmentNtLfh     HeapSegmentType = 2
-	HeapSegmentNtLarge   HeapSegmentType = 3
-	HeapSegmentNtNa      HeapSegmentType = 4
-	HeapSegmentSegHeap   HeapSegmentType = 5
+	HeapSegmentNA         HeapSegmentType = 0
+	HeapSegmentNtSegment  HeapSegmentType = 1
+	HeapSegmentNtLfh      HeapSegmentType = 2
+	HeapSegmentNtLarge    HeapSegmentType = 3
+	HeapSegmentNtNa       HeapSegmentType = 4
+	HeapSegmentSegHeap    HeapSegmentType = 5
 	HeapSegmentSegSegment HeapSegmentType = 6
-	HeapSegmentSegLarge  HeapSegmentType = 7
-	HeapSegmentSegNa     HeapSegmentType = 8
+	HeapSegmentSegLarge   HeapSegmentType = 7
+	HeapSegmentSegNa      HeapSegmentType = 8
 )
 
 // heapEntryInternal mirrors the C struct VMMDLL_MAP_HEAPENTRY.
@@ -1113,11 +1113,11 @@ type heapEntryInternal struct {
 
 // HeapEntry represents a single heap entry.
 type HeapEntry struct {
-	Address   uint64
-	Type      HeapType
-	Is32Bit   bool
-	IHeap     uint32
-	HeapNum   uint32
+	Address uint64
+	Type    HeapType
+	Is32Bit bool
+	IHeap   uint32
+	HeapNum uint32
 }
 
 // heapSegmentInternal mirrors the C struct VMMDLL_MAP_HEAP_SEGMENTENTRY.
@@ -1137,11 +1137,11 @@ type HeapSegmentEntry struct {
 
 // heapListInternal mirrors the C struct VMMDLL_MAP_HEAP.
 type heapListInternal struct {
-	Version      uint32
-	_            [7]uint32 // Reserved1
-	PSegments    uintptr
-	CSegments    uint32
-	CMap         uint32
+	Version   uint32
+	_         [7]uint32 // Reserved1
+	PSegments uintptr
+	CSegments uint32
+	CMap      uint32
 	// pMap (FAM) starts here
 }
 
@@ -1173,11 +1173,11 @@ func (vmm *Vmm) GetHeapList(pid uint32) (*HeapList, error) {
 		entries = make([]HeapEntry, pHeapMap.CMap)
 		for i, entry := range entriesInternal {
 			entries[i] = HeapEntry{
-				Address:   entry.Va,
-				Type:      entry.Tp,
-				Is32Bit:   entry.Is32Bit != 0,
-				IHeap:     entry.IHeap,
-				HeapNum:   entry.DwHeapNum,
+				Address: entry.Va,
+				Type:    entry.Tp,
+				Is32Bit: entry.Is32Bit != 0,
+				IHeap:   entry.IHeap,
+				HeapNum: entry.DwHeapNum,
 			}
 		}
 	}
@@ -1202,5 +1202,83 @@ func (vmm *Vmm) GetHeapList(pid uint32) (*HeapList, error) {
 		Count:    pHeapMap.CMap,
 		Entries:  entries,
 		Segments: segments,
+	}, nil
+}
+
+// HeapAllocType corresponds to the VMMDLL_HEAPALLOC_TP enum.
+type HeapAllocType uint32
+
+const (
+	HeapAllocTypeNA       HeapAllocType = 0
+	HeapAllocTypeNtHeap   HeapAllocType = 1
+	HeapAllocTypeNtLfh    HeapAllocType = 2
+	HeapAllocTypeNtLarge  HeapAllocType = 3
+	HeapAllocTypeNtNa     HeapAllocType = 4
+	HeapAllocTypeSegVs    HeapAllocType = 5
+	HeapAllocTypeSegLfh   HeapAllocType = 6
+	HeapAllocTypeSegLarge HeapAllocType = 7
+	HeapAllocTypeSegNa    HeapAllocType = 8
+)
+
+// heapAllocEntryInternal mirrors the C struct VMMDLL_MAP_HEAPALLOCENTRY.
+type heapAllocEntryInternal struct {
+	Va uint64
+	Cb uint32
+	Tp HeapAllocType
+}
+
+// HeapAllocEntry represents a single heap allocation entry.
+type HeapAllocEntry struct {
+	Address uint64
+	Size    uint32
+	Type    HeapAllocType
+}
+
+// heapAllocListInternal mirrors the C struct VMMDLL_MAP_HEAPALLOC.
+type heapAllocListInternal struct {
+	Version    uint32
+	_          [7]uint32 // Reserved1
+	_Reserved2 [2]uintptr
+	CMap       uint32
+	// pMap (FAM) starts here
+}
+
+// HeapAllocList contains a list of heap allocation entries for a process and heap.
+type HeapAllocList struct {
+	Version uint32
+	Count   uint32
+	Entries []HeapAllocEntry
+}
+
+// GetHeapAllocList retrieves the heap allocation entries for a given process and heap.
+func (vmm *Vmm) GetHeapAllocList(pid uint32, heapNumOrAddress uint64) (*HeapAllocList, error) {
+	var pHeapAllocMap *heapAllocListInternal
+	success := vmmMapGetHeapAlloc(vmm.vmmHandle, pid, heapNumOrAddress, &pHeapAllocMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetHeapAlloc failed for PID %d, heap 0x%x", pid, heapNumOrAddress)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pHeapAllocMap)))
+
+	if pHeapAllocMap == nil || pHeapAllocMap.CMap == 0 {
+		return &HeapAllocList{
+			Version: pHeapAllocMap.Version,
+		}, nil
+	}
+
+	entriesInternal := FAM[heapAllocListInternal, heapAllocEntryInternal](pHeapAllocMap, int(pHeapAllocMap.CMap))
+
+	entries := make([]HeapAllocEntry, pHeapAllocMap.CMap)
+	for i, entry := range entriesInternal {
+		entries[i] = HeapAllocEntry{
+			Address: entry.Va,
+			Size:    entry.Cb,
+			Type:    entry.Tp,
+		}
+	}
+
+	return &HeapAllocList{
+		Version: pHeapAllocMap.Version,
+		Count:   pHeapAllocMap.CMap,
+		Entries: entries,
 	}, nil
 }
