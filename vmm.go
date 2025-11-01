@@ -34,6 +34,7 @@ var (
 	vmmWinRegHiveList              func(vmmHandle uintptr, pHives *registryHiveInfoInternal, cHives uint32, pcHives *uint32) bool
 	vmmMapGetEATU                  func(vmmHandle uintptr, pid uint32, moduleName string, ppEatMap **eatMapInternal) bool
 	vmmMapGetIATU                  func(vmmHandle uintptr, pid uint32, moduleName string, ppIatMap **iatMapInternal) bool
+	vmmMapGetUnloadedModuleU       func(vmmHandle uintptr, pid uint32, ppUnloadedModuleMap **unloadedModuleListInternal) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -127,6 +128,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmWinRegHiveList, lib, "VMMDLL_WinReg_HiveList")
 	purego.RegisterLibFunc(&vmmMapGetEATU, lib, "VMMDLL_Map_GetEATU")
 	purego.RegisterLibFunc(&vmmMapGetIATU, lib, "VMMDLL_Map_GetIATU")
+	purego.RegisterLibFunc(&vmmMapGetUnloadedModuleU, lib, "VMMDLL_Map_GetUnloadedModuleU")
 
 	return nil
 }

@@ -240,3 +240,28 @@ func TestGetIatList(t *testing.T) {
 		t.Error("NtQuerySystemInformation not found in ntdll.dll imports")
 	}
 }
+
+func TestGetUnloadedModuleList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	unloadedModuleList, err := vmm.GetUnloadedModuleList(pid)
+	if err != nil {
+		t.Fatalf("GetUnloadedModuleList failed: %v", err)
+	}
+
+	if unloadedModuleList.Version != MapUnloadedModuleVersion {
+		t.Errorf("UnloadedModuleList version mismatch: expected %d, got %d", MapUnloadedModuleVersion, unloadedModuleList.Version)
+	}
+
+	if len(unloadedModuleList.Modules) != int(unloadedModuleList.Count) {
+		t.Errorf("Unloaded module count mismatch: expected %d, got %d", unloadedModuleList.Count, len(unloadedModuleList.Modules))
+	}
+
+	t.Logf("Found %d unloaded modules for PID %d", len(unloadedModuleList.Modules), pid)
+}
