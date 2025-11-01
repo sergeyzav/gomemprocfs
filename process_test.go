@@ -315,3 +315,21 @@ func TestGetPteList(t *testing.T) {
 
 	t.Logf("Found %d PTE entries for PID %d", len(pteList.Entries), pid)
 }
+
+func TestGetNetList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	netList, err := vmm.GetNetList()
+	if err != nil {
+		t.Fatalf("GetNetList failed: %v", err)
+	}
+
+	if netList.Version != MapNetVersion {
+		t.Errorf("NetList version mismatch: expected %d, got %d", MapNetVersion, netList.Version)
+	}
+
+	if len(netList.Entries) != int(netList.Count) {
+		t.Errorf("Net entry count mismatch: expected %d, got %d", netList.Count, len(netList.Entries))
+	}
+}

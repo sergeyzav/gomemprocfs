@@ -37,6 +37,7 @@ var (
 	vmmMapGetUnloadedModuleU       func(vmmHandle uintptr, pid uint32, ppUnloadedModuleMap **unloadedModuleListInternal) bool
 	vmmMapGetModuleFromNameU       func(vmmHandle uintptr, pid uint32, moduleName string, ppModuleEntry **moduleEntryInternal, flags uint32) bool
 	vmmMapGetPteU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppPteMap **pteListInternal) bool
+	vmmMapGetNetU                  func(vmmHandle uintptr, ppNetMap **netListInternal) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -133,6 +134,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetUnloadedModuleU, lib, "VMMDLL_Map_GetUnloadedModuleU")
 	purego.RegisterLibFunc(&vmmMapGetModuleFromNameU, lib, "VMMDLL_Map_GetModuleFromNameU")
 	purego.RegisterLibFunc(&vmmMapGetPteU, lib, "VMMDLL_Map_GetPteU")
+	purego.RegisterLibFunc(&vmmMapGetNetU, lib, "VMMDLL_Map_GetNetU")
 
 	return nil
 }
