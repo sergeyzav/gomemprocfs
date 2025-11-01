@@ -1077,3 +1077,130 @@ func (vmm *Vmm) GetNetList() (*NetList, error) {
 		Entries:   entries,
 	}, nil
 }
+
+// HeapType corresponds to the VMMDLL_HEAP_TP enum.
+type HeapType uint32
+
+const (
+	HeapTypeNA  HeapType = 0
+	HeapTypeNT  HeapType = 1
+	HeapTypeSeg HeapType = 2
+)
+
+// HeapSegmentType corresponds to the VMMDLL_HEAP_SEGMENT_TP enum.
+type HeapSegmentType uint16
+
+const (
+	HeapSegmentNA        HeapSegmentType = 0
+	HeapSegmentNtSegment HeapSegmentType = 1
+	HeapSegmentNtLfh     HeapSegmentType = 2
+	HeapSegmentNtLarge   HeapSegmentType = 3
+	HeapSegmentNtNa      HeapSegmentType = 4
+	HeapSegmentSegHeap   HeapSegmentType = 5
+	HeapSegmentSegSegment HeapSegmentType = 6
+	HeapSegmentSegLarge  HeapSegmentType = 7
+	HeapSegmentSegNa     HeapSegmentType = 8
+)
+
+// heapEntryInternal mirrors the C struct VMMDLL_MAP_HEAPENTRY.
+type heapEntryInternal struct {
+	Va        uint64
+	Tp        HeapType
+	Is32Bit   uint32 // BOOL
+	IHeap     uint32
+	DwHeapNum uint32
+}
+
+// HeapEntry represents a single heap entry.
+type HeapEntry struct {
+	Address   uint64
+	Type      HeapType
+	Is32Bit   bool
+	IHeap     uint32
+	HeapNum   uint32
+}
+
+// heapSegmentInternal mirrors the C struct VMMDLL_MAP_HEAP_SEGMENTENTRY.
+type heapSegmentInternal struct {
+	Va      uint64
+	Cb      uint32
+	TpIHeap uint32 // Bitfield for VMMDLL_HEAP_SEGMENT_TP and iHeap
+}
+
+// HeapSegmentEntry represents a single heap segment.
+type HeapSegmentEntry struct {
+	Address     uint64
+	Size        uint32
+	SegmentType HeapSegmentType
+	HeapIndex   uint16
+}
+
+// heapListInternal mirrors the C struct VMMDLL_MAP_HEAP.
+type heapListInternal struct {
+	Version      uint32
+	_            [7]uint32 // Reserved1
+	PSegments    uintptr
+	CSegments    uint32
+	CMap         uint32
+	// pMap (FAM) starts here
+}
+
+// HeapList contains a list of heap entries and segments for a process.
+type HeapList struct {
+	Version  uint32
+	Count    uint32
+	Segments []HeapSegmentEntry
+	Entries  []HeapEntry
+}
+
+// GetHeapList retrieves the heap entries for a given process.
+func (vmm *Vmm) GetHeapList(pid uint32) (*HeapList, error) {
+	var pHeapMap *heapListInternal
+	success := vmmMapGetHeap(vmm.vmmHandle, pid, &pHeapMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetHeap failed for PID %d", pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pHeapMap)))
+
+	if pHeapMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetHeap returned a nil pointer for PID %d", pid)
+	}
+
+	// Process heap entries
+	var entries []HeapEntry
+	if pHeapMap.CMap > 0 {
+		entriesInternal := FAM[heapListInternal, heapEntryInternal](pHeapMap, int(pHeapMap.CMap))
+		entries = make([]HeapEntry, pHeapMap.CMap)
+		for i, entry := range entriesInternal {
+			entries[i] = HeapEntry{
+				Address:   entry.Va,
+				Type:      entry.Tp,
+				Is32Bit:   entry.Is32Bit != 0,
+				IHeap:     entry.IHeap,
+				HeapNum:   entry.DwHeapNum,
+			}
+		}
+	}
+
+	// Process heap segments
+	var segments []HeapSegmentEntry
+	if pHeapMap.CSegments > 0 {
+		segmentsInternal := unsafe.Slice((*heapSegmentInternal)(unsafe.Pointer(pHeapMap.PSegments)), pHeapMap.CSegments)
+		segments = make([]HeapSegmentEntry, pHeapMap.CSegments)
+		for i, segment := range segmentsInternal {
+			segments[i] = HeapSegmentEntry{
+				Address:     segment.Va,
+				Size:        segment.Cb,
+				SegmentType: HeapSegmentType(segment.TpIHeap & 0xFFFF),
+				HeapIndex:   uint16(segment.TpIHeap >> 16),
+			}
+		}
+	}
+
+	return &HeapList{
+		Version:  pHeapMap.Version,
+		Count:    pHeapMap.CMap,
+		Entries:  entries,
+		Segments: segments,
+	}, nil
+}

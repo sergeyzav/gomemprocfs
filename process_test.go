@@ -333,3 +333,36 @@ func TestGetNetList(t *testing.T) {
 		t.Errorf("Net entry count mismatch: expected %d, got %d", netList.Count, len(netList.Entries))
 	}
 }
+
+func TestGetHeapList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	heapList, err := vmm.GetHeapList(pid)
+	if err != nil {
+		t.Fatalf("GetHeapList failed: %v", err)
+	}
+
+	if heapList.Version != MapHeapVersion {
+		t.Errorf("HeapList version mismatch: expected %d, got %d", MapHeapVersion, heapList.Version)
+	}
+
+	if len(heapList.Entries) != int(heapList.Count) {
+		t.Errorf("Heap entry count mismatch: expected %d, got %d", heapList.Count, len(heapList.Entries))
+	}
+
+	if len(heapList.Entries) == 0 {
+		t.Fatal("Heap list is empty")
+	}
+
+	if len(heapList.Segments) == 0 {
+		t.Fatal("Heap segment list is empty")
+	}
+
+	t.Logf("Found %d heap entries and %d heap segments for PID %d", len(heapList.Entries), len(heapList.Segments), pid)
+}
