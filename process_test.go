@@ -290,3 +290,28 @@ func TestGetModuleByName(t *testing.T) {
 
 	t.Logf("Found module 'kernel32.dll' at base address 0x%X", module.BaseAddress)
 }
+
+func TestGetPteList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	pteList, err := vmm.GetPteList(pid, true)
+	if err != nil {
+		t.Fatalf("GetPteList failed: %v", err)
+	}
+
+	if pteList.Version != MapPTEVersion {
+		t.Errorf("PteList version mismatch: expected %d, got %d", MapPTEVersion, pteList.Version)
+	}
+
+	if len(pteList.Entries) != int(pteList.Count) {
+		t.Errorf("PTE entry count mismatch: expected %d, got %d", pteList.Count, len(pteList.Entries))
+	}
+
+	t.Logf("Found %d PTE entries for PID %d", len(pteList.Entries), pid)
+}
