@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"strings"
 	"testing"
 )
 
@@ -264,4 +265,28 @@ func TestGetUnloadedModuleList(t *testing.T) {
 	}
 
 	t.Logf("Found %d unloaded modules for PID %d", len(unloadedModuleList.Modules), pid)
+}
+
+func TestGetModuleByName(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+
+	module, err := vmm.GetModuleByName(pid, "kernel32.dll")
+	if err != nil {
+		t.Fatalf("GetModuleByName failed: %v", err)
+	}
+
+	if module.BaseAddress == 0 {
+		t.Error("Expected a non-zero base address for kernel32.dll")
+	}
+	if !strings.EqualFold(module.Name, "kernel32.dll") {
+		t.Errorf("Expected module name 'kernel32.dll', got '%s'", module.Name)
+	}
+
+	t.Logf("Found module 'kernel32.dll' at base address 0x%X", module.BaseAddress)
 }
