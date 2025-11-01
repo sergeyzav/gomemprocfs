@@ -761,3 +761,84 @@ func (vmm *Vmm) GetIatList(pid uint32, moduleName string) (*IatList, error) {
 		Entries:           entries,
 	}, nil
 }
+
+// UnloadedModule represents a single unloaded module.
+type UnloadedModule struct {
+	BaseAddress uint64
+	ImageSize   uint32
+	IsWow64     bool
+	Name        string
+	UnloadTime  uint64
+	Checksum    uint32
+	Timestamp   uint32
+}
+
+// UnloadedModuleList contains a list of unloaded modules for a process.
+type UnloadedModuleList struct {
+	Version   uint32
+	Count     uint32
+	MultiText string
+	Modules   []UnloadedModule
+}
+
+// unloadedModuleEntryInternal mirrors the C struct VMMDLL_MAP_UNLOADEDMODULEENTRY.
+type unloadedModuleEntryInternal struct {
+	VaBase          uint64
+	CbImageSize     uint32
+	FWoW64          uint32 // BOOL
+	UszText         uintptr
+	_FutureUse1     uint32
+	DwCheckSum      uint32
+	DwTimeDateStamp uint32
+	_Reserved1      uint32
+	FtUnload        uint64
+}
+
+// unloadedModuleListInternal mirrors the C struct VMMDLL_MAP_UNLOADEDMODULE.
+type unloadedModuleListInternal struct {
+	Version     uint32
+	_           [5]uint32 // Reserved
+	PbMultiText uintptr
+	CbMultiText uint32
+	CMap        uint32
+	// pMap (FAM) starts here
+}
+
+// GetUnloadedModuleList retrieves the list of unloaded modules for a given process.
+func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
+	var pUnloadedModuleMap *unloadedModuleListInternal
+	success := vmmMapGetUnloadedModuleU(vmm.vmmHandle, pid, &pUnloadedModuleMap)
+	if !success {
+		return nil, fmt.Errorf("VMMDLL_Map_GetUnloadedModuleU failed for PID %d", pid)
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pUnloadedModuleMap)))
+
+	if pUnloadedModuleMap == nil || pUnloadedModuleMap.CMap == 0 {
+		return &UnloadedModuleList{
+			Version:   pUnloadedModuleMap.Version,
+			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pUnloadedModuleMap.PbMultiText)), pUnloadedModuleMap.CbMultiText)),
+		}, nil
+	}
+
+	entriesInternal := FAM[unloadedModuleListInternal, unloadedModuleEntryInternal](pUnloadedModuleMap, int(pUnloadedModuleMap.CMap))
+
+	entries := make([]UnloadedModule, pUnloadedModuleMap.CMap)
+	for i := 0; i < int(pUnloadedModuleMap.CMap); i++ {
+		entries[i] = UnloadedModule{
+			BaseAddress: entriesInternal[i].VaBase,
+			ImageSize:   entriesInternal[i].CbImageSize,
+			IsWow64:     entriesInternal[i].FWoW64 != 0,
+			Name:        cStringToGo(entriesInternal[i].UszText),
+			UnloadTime:  entriesInternal[i].FtUnload,
+			Checksum:    entriesInternal[i].DwCheckSum,
+			Timestamp:   entriesInternal[i].DwTimeDateStamp,
+		}
+	}
+
+	return &UnloadedModuleList{
+		Version:   pUnloadedModuleMap.Version,
+		Count:     pUnloadedModuleMap.CMap,
+		MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pUnloadedModuleMap.PbMultiText)), pUnloadedModuleMap.CbMultiText)),
+		Modules:   entries,
+	}, nil
+}
