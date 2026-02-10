@@ -40,6 +40,7 @@ var (
 	vmmMapGetNetU                  func(vmmHandle uintptr, ppNetMap **netListInternal) bool
 	vmmMapGetHeap                  func(vmmHandle uintptr, pid uint32, ppHeapMap **heapListInternal) bool
 	vmmMapGetHeapAlloc             func(vmmHandle uintptr, pid uint32, heapNumOrAddress uint64, ppHeapAllocMap **heapAllocListInternal) bool
+	vmmMapGetServicesU             func(vmmHandle uintptr, ppServiceMap **serviceListInternal) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -139,6 +140,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetNetU, lib, "VMMDLL_Map_GetNetU")
 	purego.RegisterLibFunc(&vmmMapGetHeap, lib, "VMMDLL_Map_GetHeap")
 	purego.RegisterLibFunc(&vmmMapGetHeapAlloc, lib, "VMMDLL_Map_GetHeapAlloc")
+	purego.RegisterLibFunc(&vmmMapGetServicesU, lib, "VMMDLL_Map_GetServicesU")
 
 	return nil
 }
