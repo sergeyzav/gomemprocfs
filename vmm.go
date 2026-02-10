@@ -42,6 +42,7 @@ var (
 	vmmMapGetHeapAlloc             func(vmmHandle uintptr, pid uint32, heapNumOrAddress uint64, ppHeapAllocMap **heapAllocListInternal) bool
 	vmmMapGetServicesU             func(vmmHandle uintptr, ppServiceMap **serviceListInternal) bool
 	vmmMapGetPhysMem               func(vmmHandle uintptr, ppPhysMemMap **physMemListInternal) bool
+	vmmMapGetThreadCallstackU      func(vmmHandle uintptr, pid, tid, flags uint32, ppCallstackMap **threadCallstackInternal) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -143,6 +144,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetHeapAlloc, lib, "VMMDLL_Map_GetHeapAlloc")
 	purego.RegisterLibFunc(&vmmMapGetServicesU, lib, "VMMDLL_Map_GetServicesU")
 	purego.RegisterLibFunc(&vmmMapGetPhysMem, lib, "VMMDLL_Map_GetPhysMem")
+	purego.RegisterLibFunc(&vmmMapGetThreadCallstackU, lib, "VMMDLL_Map_GetThread_CallstackU")
 
 	return nil
 }
