@@ -15,6 +15,14 @@ func (vmm *Vmm) MemWrite(pid uint32, addr uint64, data []byte) error {
 	return nil
 }
 
+func (vmm *Vmm) MemVirt2Phys(pid uint32, va uint64) (uint64, error) {
+	var pa uint64
+	if !vmmMemVirt2Phys(vmm.vmmHandle, pid, va, &pa) {
+		return 0, fmt.Errorf("failed to translate virtual address 0x%X for PID %d", va, pid)
+	}
+	return pa, nil
+}
+
 func (vmm *Vmm) MemRead(pid uint32, addr uint64, size uint32) ([]byte, error) {
 	buffer := make([]byte, size)
 	success := vmmMemRead(vmm.vmmHandle, pid, addr, unsafe.Pointer(&buffer[0]), size)
