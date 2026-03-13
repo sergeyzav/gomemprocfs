@@ -5,6 +5,20 @@ import (
 	"testing"
 )
 
+func TestGetPidList(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pids, err := vmm.GetPidList()
+	if err != nil {
+		t.Fatalf("GetPidList() failed: %v", err)
+	}
+	if len(pids) == 0 {
+		t.Fatal("Expected a non-empty PID list")
+	}
+	t.Logf("Found %d PIDs", len(pids))
+}
+
 func TestGetPidByName(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()

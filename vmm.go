@@ -23,6 +23,7 @@ var (
 	vmmConfigGet                   func(vmmHandle uintptr, option uint64, value *uint64) bool
 	vmmConfigSet                   func(vmmHandle uintptr, option uint64, value uint64) bool
 	vmmInitializePlugins           func(vmmHandle uintptr) bool
+	vmmPidList                     func(vmmHandle uintptr, pPIDs unsafe.Pointer, pcPIDs *uint64) bool
 	vmmPidGetFromName              func(vmmHandle uintptr, name string, pid *uint32) bool
 	vmmProcessGetInformationString func(vmmHandle uintptr, pid uint32, opt uint32) uintptr
 	vmmProcessGetInformation       func(vmmHandle uintptr, pid uint32, pProcessInformation unsafe.Pointer, pcbProcessInformation *uint32) bool
@@ -126,6 +127,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmConfigGet, lib, "VMMDLL_ConfigGet")
 	purego.RegisterLibFunc(&vmmConfigSet, lib, "VMMDLL_ConfigSet")
 	purego.RegisterLibFunc(&vmmInitializePlugins, lib, "VMMDLL_InitializePlugins")
+	purego.RegisterLibFunc(&vmmPidList, lib, "VMMDLL_PidList")
 	purego.RegisterLibFunc(&vmmPidGetFromName, lib, "VMMDLL_PidGetFromName")
 	purego.RegisterLibFunc(&vmmProcessGetInformationString, lib, "VMMDLL_ProcessGetInformationString")
 	purego.RegisterLibFunc(&vmmProcessGetInformation, lib, "VMMDLL_ProcessGetInformation")
