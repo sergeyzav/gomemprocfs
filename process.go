@@ -2,6 +2,7 @@ package memprocfs
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"unsafe"
 )
@@ -342,6 +343,20 @@ func (pi *ProcessInfo) Name() string {
 // NameLong returns the long process name as a Go string.
 func (pi *ProcessInfo) NameLong() string {
 	return string(bytes.TrimRight(pi.NameLongRaw[:], "\x00"))
+}
+
+func (vmm *Vmm) GetPidList() ([]uint32, error) {
+	var count uint64
+	vmmPidList(vmm.vmmHandle, nil, &count)
+	if count == 0 {
+		return nil, nil
+	}
+
+	pids := make([]uint32, count)
+	if !vmmPidList(vmm.vmmHandle, unsafe.Pointer(&pids[0]), &count) {
+		return nil, errors.New("failed to get PID list")
+	}
+	return pids[:count], nil
 }
 
 func (vmm *Vmm) GetPidByName(processName string) (uint32, error) {
