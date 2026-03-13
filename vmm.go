@@ -29,6 +29,7 @@ var (
 	vmmProcessGetInformation       func(vmmHandle uintptr, pid uint32, pProcessInformation unsafe.Pointer, pcbProcessInformation *uint32) bool
 	vmmMemRead                     func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
 	vmmMemWrite                    func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmMemVirt2Phys                func(vmmHandle uintptr, pid uint32, va uint64, pa *uint64) bool
 	vmmMapGetModuleU               func(vmmHandle uintptr, pid uint32, ppModuleMap **moduleListInternal, flags uint32) bool
 	vmmMapGetThread                func(vmmHandle uintptr, pid uint32, ppThreadMap **threadListInternal) bool
 	vmmMapGetVadU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
@@ -134,6 +135,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmProcessGetInformation, lib, "VMMDLL_ProcessGetInformation")
 	purego.RegisterLibFunc(&vmmMemRead, lib, "VMMDLL_MemRead")
 	purego.RegisterLibFunc(&vmmMemWrite, lib, "VMMDLL_MemWrite")
+	purego.RegisterLibFunc(&vmmMemVirt2Phys, lib, "VMMDLL_MemVirt2Phys")
 	purego.RegisterLibFunc(&vmmMapGetModuleU, lib, "VMMDLL_Map_GetModuleU")
 	purego.RegisterLibFunc(&vmmMapGetThread, lib, "VMMDLL_Map_GetThread")
 	purego.RegisterLibFunc(&vmmMapGetVadU, lib, "VMMDLL_Map_GetVadU")
