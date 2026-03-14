@@ -38,6 +38,9 @@ var (
 	vmmMapGetVadU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
 	vmmMapGetHandleU               func(vmmHandle uintptr, pid uint32, ppHandleMap **handleListInternal) bool
 	vmmWinRegHiveList              func(vmmHandle uintptr, pHives *registryHiveInfoInternal, cHives uint32, pcHives *uint32) bool
+	vmmWinRegEnumKeyExU            func(vmmHandle uintptr, fullPathKey string, index uint32, lpName unsafe.Pointer, lpcchName *uint32, lpftLastWriteTime *uint64) bool
+	vmmWinRegEnumValueU            func(vmmHandle uintptr, fullPathKey string, index uint32, lpValueName unsafe.Pointer, lpcchValueName *uint32, lpType *uint32, lpData unsafe.Pointer, lpcbData *uint32) bool
+	vmmWinRegQueryValueExU         func(vmmHandle uintptr, fullPathKeyValue string, lpType *uint32, lpData unsafe.Pointer, lpcbData *uint32) bool
 	vmmMapGetEATU                  func(vmmHandle uintptr, pid uint32, moduleName string, ppEatMap **eatMapInternal) bool
 	vmmMapGetIATU                  func(vmmHandle uintptr, pid uint32, moduleName string, ppIatMap **iatMapInternal) bool
 	vmmMapGetUnloadedModuleU       func(vmmHandle uintptr, pid uint32, ppUnloadedModuleMap **unloadedModuleListInternal) bool
@@ -153,6 +156,9 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetVadU, lib, "VMMDLL_Map_GetVadU")
 	purego.RegisterLibFunc(&vmmMapGetHandleU, lib, "VMMDLL_Map_GetHandleU")
 	purego.RegisterLibFunc(&vmmWinRegHiveList, lib, "VMMDLL_WinReg_HiveList")
+	purego.RegisterLibFunc(&vmmWinRegEnumKeyExU, lib, "VMMDLL_WinReg_EnumKeyExU")
+	purego.RegisterLibFunc(&vmmWinRegEnumValueU, lib, "VMMDLL_WinReg_EnumValueU")
+	purego.RegisterLibFunc(&vmmWinRegQueryValueExU, lib, "VMMDLL_WinReg_QueryValueExU")
 	purego.RegisterLibFunc(&vmmMapGetEATU, lib, "VMMDLL_Map_GetEATU")
 	purego.RegisterLibFunc(&vmmMapGetIATU, lib, "VMMDLL_Map_GetIATU")
 	purego.RegisterLibFunc(&vmmMapGetUnloadedModuleU, lib, "VMMDLL_Map_GetUnloadedModuleU")
