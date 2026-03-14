@@ -4,8 +4,6 @@ libs
 .idea/
 .gemini/
 check.txt
-examples/main
-examples/memdump.raw
 memprocfs1/
 go.sum
-memory/
+dumps/
