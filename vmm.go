@@ -78,6 +78,9 @@ var (
 	vmmVfsListBlobU                func(vmmHandle uintptr, path string) uintptr
 	vmmVfsReadU                    func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbRead *uint32, cbOffset uint64) uint32
 	vmmVfsWriteU                   func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbWrite *uint32, cbOffset uint64) uint32
+	vmmMapGetVadEx                 func(vmmHandle uintptr, pid uint32, oPage uint32, cPage uint32, ppVadExMap **vadExListInternal) bool
+	vmmMapGetPfnEx                 func(vmmHandle uintptr, pPfns unsafe.Pointer, cPfns uint32, ppPfnMap **pfnListInternal, flags uint32) bool
+	vmmMapGetVMU                   func(vmmHandle uintptr, ppVmMap **vmListInternal) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -215,6 +218,9 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmVfsListBlobU, lib, "VMMDLL_VfsListBlobU")
 	purego.RegisterLibFunc(&vmmVfsReadU, lib, "VMMDLL_VfsReadU")
 	purego.RegisterLibFunc(&vmmVfsWriteU, lib, "VMMDLL_VfsWriteU")
+	purego.RegisterLibFunc(&vmmMapGetVadEx, lib, "VMMDLL_Map_GetVadEx")
+	purego.RegisterLibFunc(&vmmMapGetPfnEx, lib, "VMMDLL_Map_GetPfnEx")
+	purego.RegisterLibFunc(&vmmMapGetVMU, lib, "VMMDLL_Map_GetVMU")
 
 	return nil
 }
