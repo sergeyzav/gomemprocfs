@@ -75,6 +75,9 @@ var (
 	vmmPdbSymbolAddress            func(vmmHandle uintptr, szModule string, szSymbolName string, pvaSymbolAddress *uint64) bool
 	vmmPdbTypeSize                 func(vmmHandle uintptr, szModule string, szTypeName string, pcbTypeSize *uint32) bool
 	vmmPdbTypeChildOffset          func(vmmHandle uintptr, szModule string, szTypeName string, szTypeChildName string, pcbTypeChildOffset *uint32) bool
+	vmmVfsListBlobU                func(vmmHandle uintptr, path string) uintptr
+	vmmVfsReadU                    func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbRead *uint32, cbOffset uint64) uint32
+	vmmVfsWriteU                   func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbWrite *uint32, cbOffset uint64) uint32
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -209,6 +212,9 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmPdbSymbolAddress, lib, "VMMDLL_PdbSymbolAddress")
 	purego.RegisterLibFunc(&vmmPdbTypeSize, lib, "VMMDLL_PdbTypeSize")
 	purego.RegisterLibFunc(&vmmPdbTypeChildOffset, lib, "VMMDLL_PdbTypeChildOffset")
+	purego.RegisterLibFunc(&vmmVfsListBlobU, lib, "VMMDLL_VfsListBlobU")
+	purego.RegisterLibFunc(&vmmVfsReadU, lib, "VMMDLL_VfsReadU")
+	purego.RegisterLibFunc(&vmmVfsWriteU, lib, "VMMDLL_VfsWriteU")
 
 	return nil
 }
