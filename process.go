@@ -423,6 +423,14 @@ func (vmm *Vmm) GetProcessInfoAll() ([]ProcessInfo, error) {
 	return result, nil
 }
 
+func (vmm *Vmm) GetProcAddress(pid uint32, moduleName string, funcName string) (uint64, error) {
+	addr := vmmProcessGetProcAddressU(vmm.vmmHandle, pid, moduleName, funcName)
+	if addr == 0 {
+		return 0, fmt.Errorf("failed to get address of '%s' in '%s' for PID %d", funcName, moduleName, pid)
+	}
+	return addr, nil
+}
+
 func (vmm *Vmm) GetModuleBase(pid uint32, moduleName string) (uint64, error) {
 	base := vmmProcessGetModuleBaseU(vmm.vmmHandle, pid, moduleName)
 	if base == 0 {

@@ -89,6 +89,25 @@ func TestGetProcessInfo(t *testing.T) {
 	t.Logf("  PEB: 0x%X", info.Win.PEB)
 }
 
+func TestGetProcAddress(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName failed: %v", err)
+	}
+
+	addr, err := vmm.GetProcAddress(pid, "ntdll.dll", "NtQuerySystemInformation")
+	if err != nil {
+		t.Fatalf("GetProcAddress failed: %v", err)
+	}
+	if addr == 0 {
+		t.Fatal("Expected non-zero address")
+	}
+	t.Logf("ntdll!NtQuerySystemInformation: 0x%X", addr)
+}
+
 func TestGetModuleBase(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()
