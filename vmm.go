@@ -18,6 +18,7 @@ type Vmm struct {
 var (
 	vmmInitialize                  func(argc int32, args []*byte) uintptr
 	vmmClose                       func(vmmHandle uintptr) uintptr
+	vmmCloseAll                    func()
 	vmmMemSize                     func(handle uintptr) uint64
 	vmmMemFree                     func(handle uintptr) uintptr
 	vmmConfigGet                   func(vmmHandle uintptr, option uint64, value *uint64) bool
@@ -153,6 +154,12 @@ func (vmm *Vmm) Close() error {
 	return nil
 }
 
+// CloseAll closes all active VMM_HANDLE instances and frees all resources.
+// It is a global operation — use with care when multiple Vmm instances exist.
+func CloseAll() {
+	vmmCloseAll()
+}
+
 func (vmm *Vmm) free(recourse uintptr) error {
 	result := vmmMemFree(recourse)
 
@@ -166,6 +173,7 @@ func (vmm *Vmm) free(recourse uintptr) error {
 func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmInitialize, lib, "VMMDLL_Initialize")
 	purego.RegisterLibFunc(&vmmClose, lib, "VMMDLL_Close")
+	purego.RegisterLibFunc(&vmmCloseAll, lib, "VMMDLL_CloseAll")
 	purego.RegisterLibFunc(&vmmMemSize, lib, "VMMDLL_MemSize")
 	purego.RegisterLibFunc(&vmmMemFree, lib, "VMMDLL_MemFree")
 	purego.RegisterLibFunc(&vmmConfigGet, lib, "VMMDLL_ConfigGet")
