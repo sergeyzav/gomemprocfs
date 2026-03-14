@@ -83,6 +83,7 @@ var (
 	vmmMapGetVadEx                 func(vmmHandle uintptr, pid uint32, oPage uint32, cPage uint32, ppVadExMap **vadExListInternal) bool
 	vmmMapGetPfnEx                 func(vmmHandle uintptr, pPfns unsafe.Pointer, cPfns uint32, ppPfnMap **pfnListInternal, flags uint32) bool
 	vmmMapGetVMU                   func(vmmHandle uintptr, ppVmMap **vmListInternal) bool
+	vmmWinGetThunkInfoIATU         func(vmmHandle uintptr, pid uint32, moduleName string, importModuleName string, importFunctionName string, pThunkInfo unsafe.Pointer) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -225,6 +226,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetVadEx, lib, "VMMDLL_Map_GetVadEx")
 	purego.RegisterLibFunc(&vmmMapGetPfnEx, lib, "VMMDLL_Map_GetPfnEx")
 	purego.RegisterLibFunc(&vmmMapGetVMU, lib, "VMMDLL_Map_GetVMU")
+	purego.RegisterLibFunc(&vmmWinGetThunkInfoIATU, lib, "VMMDLL_WinGetThunkInfoIATU")
 
 	return nil
 }
