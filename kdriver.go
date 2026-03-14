@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // KDriverEntry represents a single kernel driver entry.
 type KDriverEntry struct {
@@ -47,10 +50,10 @@ type kdriverListInternal struct {
 func (vmm *Vmm) GetKDriverList() (*KDriverList, error) {
 	var pMap *kdriverListInternal
 	if !vmmMapGetKDriverU(vmm.vmmHandle, &pMap) {
-		return nil, nil
+		return nil, fmt.Errorf("GetKDriverList: failed")
 	}
 	if pMap == nil {
-		return nil, nil
+		return nil, fmt.Errorf("GetKDriverList: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 

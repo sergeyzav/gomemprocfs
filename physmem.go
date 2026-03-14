@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // PhysMemEntry represents a physical memory range.
 type PhysMemEntry struct {
@@ -35,13 +38,12 @@ func (vmm *Vmm) GetPhysMem() (*PhysMemList, error) {
 	var pPhysMemMap *physMemListInternal
 	success := vmmMapGetPhysMem(vmm.vmmHandle, &pPhysMemMap)
 	if !success {
-		return nil, nil
+		return nil, fmt.Errorf("GetPhysMem: failed")
+	}
+	if pPhysMemMap == nil {
+		return nil, fmt.Errorf("GetPhysMem: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pPhysMemMap)))
-
-	if pPhysMemMap == nil {
-		return nil, nil
-	}
 
 	if pPhysMemMap.CMap == 0 {
 		return &PhysMemList{

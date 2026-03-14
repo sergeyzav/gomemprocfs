@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // ImageDataDirectory mirrors the Windows IMAGE_DATA_DIRECTORY structure.
 type ImageDataDirectory struct {
@@ -38,8 +41,7 @@ func (vmm *Vmm) GetProcessSections(pid uint32, moduleName string) ([]ImageSectio
 	// Note: According to docs, we pass NULL for buffer and 0 for size to get count in pcSections.
 	success := vmmProcessGetSectionsU(vmm.vmmHandle, pid, moduleName, nil, 0, &count)
 	if !success {
-		// It might fail if module not found, or other errors.
-		return nil, nil
+		return nil, fmt.Errorf("GetProcessSections: failed for PID %d module %q", pid, moduleName)
 	}
 
 	if count == 0 {
@@ -47,10 +49,9 @@ func (vmm *Vmm) GetProcessSections(pid uint32, moduleName string) ([]ImageSectio
 	}
 
 	sections := make([]ImageSectionHeader, count)
-	// Second call to fill the buffer.
 	success = vmmProcessGetSectionsU(vmm.vmmHandle, pid, moduleName, unsafe.Pointer(&sections[0]), count, &count)
 	if !success {
-		return nil, nil
+		return nil, fmt.Errorf("GetProcessSections: second call failed for PID %d module %q", pid, moduleName)
 	}
 
 	return sections, nil

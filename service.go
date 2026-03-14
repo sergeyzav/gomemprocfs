@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // ServiceStatus mirrors the Windows SERVICE_STATUS structure.
 type ServiceStatus struct {
@@ -69,16 +72,10 @@ func (vmm *Vmm) GetServiceList() (*ServiceList, error) {
 	var pServiceMap *serviceListInternal
 	success := vmmMapGetServicesU(vmm.vmmHandle, &pServiceMap)
 	if !success {
-		return nil, nil // Return nil if failed (or empty list if appropriate, but usually failure indicates error)
+		return nil, fmt.Errorf("GetServiceList: failed")
 	}
-	// Note: The C function returns FALSE on failure. However, sometimes it might return TRUE with 0 entries?
-	// The original C code:
-	// if(!VMMDLL_Map_GetServicesU(hVMM, &pServiceMap)) { return fail; }
-	// So success check is standard.
-
-	// If pServiceMap is nil after success call (which shouldn't happen on success typically but good to check)
 	if pServiceMap == nil {
-		return nil, nil
+		return nil, fmt.Errorf("GetServiceList: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pServiceMap)))
 

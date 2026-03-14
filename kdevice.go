@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // KDeviceEntry represents a single kernel device object entry.
 type KDeviceEntry struct {
@@ -47,10 +50,10 @@ type kdeviceListInternal struct {
 func (vmm *Vmm) GetKDeviceList() (*KDeviceList, error) {
 	var pMap *kdeviceListInternal
 	if !vmmMapGetKDeviceU(vmm.vmmHandle, &pMap) {
-		return nil, nil
+		return nil, fmt.Errorf("GetKDeviceList: failed")
 	}
 	if pMap == nil {
-		return nil, nil
+		return nil, fmt.Errorf("GetKDeviceList: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 

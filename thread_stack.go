@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // ThreadCallstackEntry represents a single entry in the thread callstack.
 type ThreadCallstackEntry struct {
@@ -58,13 +61,12 @@ func (vmm *Vmm) GetThreadCallstack(pid, tid uint32) (*ThreadCallstack, error) {
 	// flags is usually 0
 	success := vmmMapGetThreadCallstackU(vmm.vmmHandle, pid, tid, 0, &pCallstackMap)
 	if !success {
-		return nil, nil // Or error? Let's return nil for now as per other functions.
+		return nil, fmt.Errorf("GetThreadCallstack: failed for PID %d TID %d", pid, tid)
+	}
+	if pCallstackMap == nil {
+		return nil, fmt.Errorf("GetThreadCallstack: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pCallstackMap)))
-
-	if pCallstackMap == nil {
-		return nil, nil
-	}
 
 	if pCallstackMap.CMap == 0 {
 		return &ThreadCallstack{

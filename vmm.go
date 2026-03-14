@@ -1,6 +1,5 @@
 package memprocfs
 
-import "C"
 import (
 	"errors"
 	"fmt"
@@ -16,80 +15,103 @@ type Vmm struct {
 }
 
 var (
-	vmmInitialize                  func(argc int32, args []*byte) uintptr
-	vmmClose                       func(vmmHandle uintptr) uintptr
-	vmmCloseAll                    func()
-	vmmMemSize                     func(handle uintptr) uint64
-	vmmMemFree                     func(handle uintptr) uintptr
-	vmmConfigGet                   func(vmmHandle uintptr, option uint64, value *uint64) bool
-	vmmConfigSet                   func(vmmHandle uintptr, option uint64, value uint64) bool
-	vmmInitializePlugins           func(vmmHandle uintptr) bool
+	// ─── core ────────────────────────────────────────────────────────────────
+	vmmInitialize func(argc int32, args []*byte) uintptr
+	vmmClose      func(vmmHandle uintptr) uintptr
+	vmmCloseAll   func()
+	vmmMemSize    func(handle uintptr) uint64
+	vmmMemFree    func(handle uintptr) uintptr
+
+	// ─── config ──────────────────────────────────────────────────────────────
+	vmmConfigGet         func(vmmHandle uintptr, option uint64, value *uint64) bool
+	vmmConfigSet         func(vmmHandle uintptr, option uint64, value uint64) bool
+	vmmInitializePlugins func(vmmHandle uintptr) bool
+
+	// ─── process ─────────────────────────────────────────────────────────────
 	vmmPidList                     func(vmmHandle uintptr, pPIDs unsafe.Pointer, pcPIDs *uint64) bool
 	vmmPidGetFromName              func(vmmHandle uintptr, name string, pid *uint32) bool
 	vmmProcessGetInformationString func(vmmHandle uintptr, pid uint32, opt uint32) uintptr
 	vmmProcessGetInformation       func(vmmHandle uintptr, pid uint32, pProcessInformation unsafe.Pointer, pcbProcessInformation *uint32) bool
 	vmmProcessGetInformationAll    func(vmmHandle uintptr, ppInfoAll **ProcessInfo, pcInfo *uint32) bool
-	vmmMemRead                     func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
-	vmmMemReadEx                   func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32, pcbRead *uint32, flags uint64) bool
-	vmmMemReadPage                 func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer) bool
-	vmmMemPrefetchPages            func(vmmHandle uintptr, pid uint32, pAddresses unsafe.Pointer, cAddresses uint32) bool
-	vmmMemWrite                    func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
-	vmmMemVirt2Phys                func(vmmHandle uintptr, pid uint32, va uint64, pa *uint64) bool
 	vmmProcessGetModuleBaseU       func(vmmHandle uintptr, pid uint32, moduleName string) uint64
 	vmmProcessGetProcAddressU      func(vmmHandle uintptr, pid uint32, moduleName string, funcName string) uint64
-	vmmMapGetModuleU               func(vmmHandle uintptr, pid uint32, ppModuleMap **moduleListInternal, flags uint32) bool
-	vmmMapGetThread                func(vmmHandle uintptr, pid uint32, ppThreadMap **threadListInternal) bool
-	vmmMapGetVadU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
-	vmmMapGetHandleU               func(vmmHandle uintptr, pid uint32, ppHandleMap **handleListInternal) bool
-	vmmWinRegHiveList              func(vmmHandle uintptr, pHives *registryHiveInfoInternal, cHives uint32, pcHives *uint32) bool
-	vmmWinRegHiveReadEx            func(vmmHandle uintptr, vaCMHive uint64, ra uint32, pb unsafe.Pointer, cb uint32, pcbRead *uint32, flags uint64) bool
-	vmmWinRegHiveWrite             func(vmmHandle uintptr, vaCMHive uint64, ra uint32, pb unsafe.Pointer, cb uint32) bool
-	vmmWinRegEnumKeyExU            func(vmmHandle uintptr, fullPathKey string, index uint32, lpName unsafe.Pointer, lpcchName *uint32, lpftLastWriteTime *uint64) bool
-	vmmWinRegEnumValueU            func(vmmHandle uintptr, fullPathKey string, index uint32, lpValueName unsafe.Pointer, lpcchValueName *uint32, lpType *uint32, lpData unsafe.Pointer, lpcbData *uint32) bool
-	vmmWinRegQueryValueExU         func(vmmHandle uintptr, fullPathKeyValue string, lpType *uint32, lpData unsafe.Pointer, lpcbData *uint32) bool
-	vmmMapGetEATU                  func(vmmHandle uintptr, pid uint32, moduleName string, ppEatMap **eatMapInternal) bool
-	vmmMapGetIATU                  func(vmmHandle uintptr, pid uint32, moduleName string, ppIatMap **iatMapInternal) bool
-	vmmMapGetUnloadedModuleU       func(vmmHandle uintptr, pid uint32, ppUnloadedModuleMap **unloadedModuleListInternal) bool
-	vmmMapGetModuleFromNameU       func(vmmHandle uintptr, pid uint32, moduleName string, ppModuleEntry **moduleEntryInternal, flags uint32) bool
-	vmmMapGetPteU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppPteMap **pteListInternal) bool
-	vmmMapGetKDeviceU              func(vmmHandle uintptr, ppKDeviceMap **kdeviceListInternal) bool
-	vmmMapGetKDriverU              func(vmmHandle uintptr, ppKDriverMap **kdriverListInternal) bool
-	vmmMapGetKObjectU              func(vmmHandle uintptr, ppKObjectMap **kobjectListInternal) bool
-	vmmMapGetUsersU                func(vmmHandle uintptr, ppUserMap **userListInternal) bool
-	vmmMapGetPool                  func(vmmHandle uintptr, ppPoolMap **poolListInternal, flags uint32) bool
-	vmmMapGetNetU                  func(vmmHandle uintptr, ppNetMap **netListInternal) bool
-	vmmMapGetHeap                  func(vmmHandle uintptr, pid uint32, ppHeapMap **heapListInternal) bool
-	vmmMapGetHeapAlloc             func(vmmHandle uintptr, pid uint32, heapNumOrAddress uint64, ppHeapAllocMap **heapAllocListInternal) bool
-	vmmMapGetServicesU             func(vmmHandle uintptr, ppServiceMap **serviceListInternal) bool
-	vmmMapGetPhysMem               func(vmmHandle uintptr, ppPhysMemMap **physMemListInternal) bool
-	vmmMapGetThreadCallstackU      func(vmmHandle uintptr, pid, tid, flags uint32, ppCallstackMap **threadCallstackInternal) bool
 	vmmProcessGetSectionsU         func(vmmHandle uintptr, pid uint32, moduleName string, pSections unsafe.Pointer, cSections uint32, pcSections *uint32) bool
 	vmmProcessGetDirectoriesU      func(vmmHandle uintptr, pid uint32, moduleName string, pDirectories unsafe.Pointer) bool
-	vmmScatterInitialize           func(vmmHandle uintptr, pid uint32, flags uint32) uintptr
-	vmmScatterPrepare              func(hS uintptr, va uint64, cb uint32) bool
-	vmmScatterPrepareWrite         func(hS uintptr, va uint64, pb unsafe.Pointer, cb uint32) bool
-	vmmScatterExecute              func(hS uintptr) bool
-	vmmScatterExecuteRead          func(hS uintptr) bool
-	vmmScatterRead                 func(hS uintptr, va uint64, cb uint32, pb unsafe.Pointer, pcbRead *uint32) bool
-	vmmScatterClear                func(hS uintptr, pid uint32, flags uint32) bool
-	vmmScatterCloseHandle          func(hS uintptr)
-	vmmPdbLoad                     func(vmmHandle uintptr, pid uint32, vaModuleBase uint64, szModuleName unsafe.Pointer) bool
-	vmmPdbSymbolName               func(vmmHandle uintptr, szModule string, cbSymbolAddressOrOffset uint64, szSymbolName unsafe.Pointer, pdwDisplacement *uint32) bool
-	vmmPdbSymbolAddress            func(vmmHandle uintptr, szModule string, szSymbolName string, pvaSymbolAddress *uint64) bool
-	vmmPdbTypeSize                 func(vmmHandle uintptr, szModule string, szTypeName string, pcbTypeSize *uint32) bool
-	vmmPdbTypeChildOffset          func(vmmHandle uintptr, szModule string, szTypeName string, szTypeChildName string, pcbTypeChildOffset *uint32) bool
-	vmmVfsListBlobU                func(vmmHandle uintptr, path string) uintptr
-	vmmVfsReadU                    func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbRead *uint32, cbOffset uint64) uint32
-	vmmVfsWriteU                   func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbWrite *uint32, cbOffset uint64) uint32
-	vmmMapGetVadEx                 func(vmmHandle uintptr, pid uint32, oPage uint32, cPage uint32, ppVadExMap **vadExListInternal) bool
-	vmmMapGetPfnEx                 func(vmmHandle uintptr, pPfns unsafe.Pointer, cPfns uint32, ppPfnMap **pfnListInternal, flags uint32) bool
-	vmmMapGetVMU                   func(vmmHandle uintptr, ppVmMap **vmListInternal) bool
-	vmmWinGetThunkInfoIATU         func(vmmHandle uintptr, pid uint32, moduleName string, importModuleName string, importFunctionName string, pThunkInfo unsafe.Pointer) bool
-	vmmVmGetVmmHandle              func(vmmHandle uintptr, hVM uintptr) uintptr
-	vmmVmScatterInitialize         func(vmmHandle uintptr, hVM uintptr) uintptr
-	vmmVmMemRead                   func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pb unsafe.Pointer, cb uint32) bool
-	vmmVmMemWrite                  func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pb unsafe.Pointer, cb uint32) bool
-	vmmVmMemTranslateGPA           func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pPA *uint64, pVA *uint64) bool
+
+	// ─── memory ──────────────────────────────────────────────────────────────
+	vmmMemRead          func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmMemReadEx        func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32, pcbRead *uint32, flags uint64) bool
+	vmmMemReadPage      func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer) bool
+	vmmMemPrefetchPages func(vmmHandle uintptr, pid uint32, pAddresses unsafe.Pointer, cAddresses uint32) bool
+	vmmMemWrite         func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmMemVirt2Phys     func(vmmHandle uintptr, pid uint32, va uint64, pa *uint64) bool
+
+	// ─── scatter ─────────────────────────────────────────────────────────────
+	vmmScatterInitialize  func(vmmHandle uintptr, pid uint32, flags uint32) uintptr
+	vmmScatterPrepare     func(hS uintptr, va uint64, cb uint32) bool
+	vmmScatterPrepareWrite func(hS uintptr, va uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmScatterExecute     func(hS uintptr) bool
+	vmmScatterExecuteRead func(hS uintptr) bool
+	vmmScatterRead        func(hS uintptr, va uint64, cb uint32, pb unsafe.Pointer, pcbRead *uint32) bool
+	vmmScatterClear       func(hS uintptr, pid uint32, flags uint32) bool
+	vmmScatterCloseHandle func(hS uintptr)
+
+	// ─── map (process) ───────────────────────────────────────────────────────
+	vmmMapGetModuleU         func(vmmHandle uintptr, pid uint32, ppModuleMap **moduleListInternal, flags uint32) bool
+	vmmMapGetModuleFromNameU func(vmmHandle uintptr, pid uint32, moduleName string, ppModuleEntry **moduleEntryInternal, flags uint32) bool
+	vmmMapGetThread          func(vmmHandle uintptr, pid uint32, ppThreadMap **threadListInternal) bool
+	vmmMapGetVadU            func(vmmHandle uintptr, pid uint32, identifyModules bool, ppVadMap **vadListInternal) bool
+	vmmMapGetVadEx           func(vmmHandle uintptr, pid uint32, oPage uint32, cPage uint32, ppVadExMap **vadExListInternal) bool
+	vmmMapGetHandleU         func(vmmHandle uintptr, pid uint32, ppHandleMap **handleListInternal) bool
+	vmmMapGetPteU            func(vmmHandle uintptr, pid uint32, identifyModules bool, ppPteMap **pteListInternal) bool
+	vmmMapGetEATU            func(vmmHandle uintptr, pid uint32, moduleName string, ppEatMap **eatMapInternal) bool
+	vmmMapGetIATU            func(vmmHandle uintptr, pid uint32, moduleName string, ppIatMap **iatMapInternal) bool
+	vmmMapGetUnloadedModuleU func(vmmHandle uintptr, pid uint32, ppUnloadedModuleMap **unloadedModuleListInternal) bool
+	vmmMapGetHeap            func(vmmHandle uintptr, pid uint32, ppHeapMap **heapListInternal) bool
+	vmmMapGetHeapAlloc       func(vmmHandle uintptr, pid uint32, heapNumOrAddress uint64, ppHeapAllocMap **heapAllocListInternal) bool
+
+	// ─── map (system) ────────────────────────────────────────────────────────
+	vmmMapGetKDeviceU         func(vmmHandle uintptr, ppKDeviceMap **kdeviceListInternal) bool
+	vmmMapGetKDriverU         func(vmmHandle uintptr, ppKDriverMap **kdriverListInternal) bool
+	vmmMapGetKObjectU         func(vmmHandle uintptr, ppKObjectMap **kobjectListInternal) bool
+	vmmMapGetUsersU           func(vmmHandle uintptr, ppUserMap **userListInternal) bool
+	vmmMapGetPool             func(vmmHandle uintptr, ppPoolMap **poolListInternal, flags uint32) bool
+	vmmMapGetNetU             func(vmmHandle uintptr, ppNetMap **netListInternal) bool
+	vmmMapGetServicesU        func(vmmHandle uintptr, ppServiceMap **serviceListInternal) bool
+	vmmMapGetPhysMem          func(vmmHandle uintptr, ppPhysMemMap **physMemListInternal) bool
+	vmmMapGetPfnEx            func(vmmHandle uintptr, pPfns unsafe.Pointer, cPfns uint32, ppPfnMap **pfnListInternal, flags uint32) bool
+	vmmMapGetVMU              func(vmmHandle uintptr, ppVmMap **vmListInternal) bool
+	vmmMapGetThreadCallstackU func(vmmHandle uintptr, pid, tid, flags uint32, ppCallstackMap **threadCallstackInternal) bool
+
+	// ─── registry ────────────────────────────────────────────────────────────
+	vmmWinRegHiveList      func(vmmHandle uintptr, pHives *registryHiveInfoInternal, cHives uint32, pcHives *uint32) bool
+	vmmWinRegHiveReadEx    func(vmmHandle uintptr, vaCMHive uint64, ra uint32, pb unsafe.Pointer, cb uint32, pcbRead *uint32, flags uint64) bool
+	vmmWinRegHiveWrite     func(vmmHandle uintptr, vaCMHive uint64, ra uint32, pb unsafe.Pointer, cb uint32) bool
+	vmmWinRegEnumKeyExU    func(vmmHandle uintptr, fullPathKey string, index uint32, lpName unsafe.Pointer, lpcchName *uint32, lpftLastWriteTime *uint64) bool
+	vmmWinRegEnumValueU    func(vmmHandle uintptr, fullPathKey string, index uint32, lpValueName unsafe.Pointer, lpcchValueName *uint32, lpType *uint32, lpData unsafe.Pointer, lpcbData *uint32) bool
+	vmmWinRegQueryValueExU func(vmmHandle uintptr, fullPathKeyValue string, lpType *uint32, lpData unsafe.Pointer, lpcbData *uint32) bool
+
+	// ─── pdb ─────────────────────────────────────────────────────────────────
+	vmmPdbLoad            func(vmmHandle uintptr, pid uint32, vaModuleBase uint64, szModuleName unsafe.Pointer) bool
+	vmmPdbSymbolName      func(vmmHandle uintptr, szModule string, cbSymbolAddressOrOffset uint64, szSymbolName unsafe.Pointer, pdwDisplacement *uint32) bool
+	vmmPdbSymbolAddress   func(vmmHandle uintptr, szModule string, szSymbolName string, pvaSymbolAddress *uint64) bool
+	vmmPdbTypeSize        func(vmmHandle uintptr, szModule string, szTypeName string, pcbTypeSize *uint32) bool
+	vmmPdbTypeChildOffset func(vmmHandle uintptr, szModule string, szTypeName string, szTypeChildName string, pcbTypeChildOffset *uint32) bool
+
+	// ─── vfs ─────────────────────────────────────────────────────────────────
+	vmmVfsListBlobU func(vmmHandle uintptr, path string) uintptr
+	vmmVfsReadU     func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbRead *uint32, cbOffset uint64) uint32
+	vmmVfsWriteU    func(vmmHandle uintptr, path string, pb unsafe.Pointer, cb uint32, pcbWrite *uint32, cbOffset uint64) uint32
+
+	// ─── win ─────────────────────────────────────────────────────────────────
+	vmmWinGetThunkInfoIATU func(vmmHandle uintptr, pid uint32, moduleName string, importModuleName string, importFunctionName string, pThunkInfo unsafe.Pointer) bool
+
+	// ─── vm ──────────────────────────────────────────────────────────────────
+	vmmVmGetVmmHandle    func(vmmHandle uintptr, hVM uintptr) uintptr
+	vmmVmScatterInitialize func(vmmHandle uintptr, hVM uintptr) uintptr
+	vmmVmMemRead         func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmVmMemWrite        func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmVmMemTranslateGPA func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pPA *uint64, pVA *uint64) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -109,7 +131,7 @@ func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 		return nil, err
 	}
 
-	if loadFunctions(lib) != nil {
+	if err := loadFunctions(lib); err != nil {
 		return nil, err
 	}
 

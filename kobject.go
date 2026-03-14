@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // KObjectEntry represents a single kernel object entry.
 type KObjectEntry struct {
@@ -43,10 +46,10 @@ type kobjectListInternal struct {
 func (vmm *Vmm) GetKObjectList() (*KObjectList, error) {
 	var pMap *kobjectListInternal
 	if !vmmMapGetKObjectU(vmm.vmmHandle, &pMap) {
-		return nil, nil
+		return nil, fmt.Errorf("GetKObjectList: failed")
 	}
 	if pMap == nil {
-		return nil, nil
+		return nil, fmt.Errorf("GetKObjectList: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 

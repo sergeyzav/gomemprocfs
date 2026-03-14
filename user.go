@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // UserEntry represents a single user entry.
 type UserEntry struct {
@@ -39,10 +42,10 @@ type userListInternal struct {
 func (vmm *Vmm) GetUserList() (*UserList, error) {
 	var pUserMap *userListInternal
 	if !vmmMapGetUsersU(vmm.vmmHandle, &pUserMap) {
-		return nil, nil
+		return nil, fmt.Errorf("GetUserList: failed")
 	}
 	if pUserMap == nil {
-		return nil, nil
+		return nil, fmt.Errorf("GetUserList: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pUserMap)))
 

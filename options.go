@@ -1,6 +1,5 @@
 package memprocfs
 
-import "C"
 import (
 	"fmt"
 	"strconv"

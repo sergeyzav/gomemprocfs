@@ -1,6 +1,9 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // PoolMapFlag controls which pool allocations are returned.
 type PoolMapFlag uint32
@@ -65,10 +68,10 @@ type poolListInternal struct {
 func (vmm *Vmm) GetPoolList(flag PoolMapFlag) (*PoolList, error) {
 	var pMap *poolListInternal
 	if !vmmMapGetPool(vmm.vmmHandle, &pMap, uint32(flag)) {
-		return nil, nil
+		return nil, fmt.Errorf("GetPoolList: failed")
 	}
 	if pMap == nil {
-		return nil, nil
+		return nil, fmt.Errorf("GetPoolList: nil map returned")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 
