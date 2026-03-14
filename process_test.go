@@ -89,6 +89,25 @@ func TestGetProcessInfo(t *testing.T) {
 	t.Logf("  PEB: 0x%X", info.Win.PEB)
 }
 
+func TestGetModuleBase(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName failed: %v", err)
+	}
+
+	base, err := vmm.GetModuleBase(pid, "explorer.exe")
+	if err != nil {
+		t.Fatalf("GetModuleBase failed: %v", err)
+	}
+	if base == 0 {
+		t.Fatal("Expected non-zero base address")
+	}
+	t.Logf("explorer.exe base: 0x%X", base)
+}
+
 func TestGetModuleList(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()
