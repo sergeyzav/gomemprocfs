@@ -43,6 +43,7 @@ var (
 	vmmMapGetUnloadedModuleU       func(vmmHandle uintptr, pid uint32, ppUnloadedModuleMap **unloadedModuleListInternal) bool
 	vmmMapGetModuleFromNameU       func(vmmHandle uintptr, pid uint32, moduleName string, ppModuleEntry **moduleEntryInternal, flags uint32) bool
 	vmmMapGetPteU                  func(vmmHandle uintptr, pid uint32, identifyModules bool, ppPteMap **pteListInternal) bool
+	vmmMapGetKDeviceU              func(vmmHandle uintptr, ppKDeviceMap **kdeviceListInternal) bool
 	vmmMapGetKDriverU              func(vmmHandle uintptr, ppKDriverMap **kdriverListInternal) bool
 	vmmMapGetUsersU                func(vmmHandle uintptr, ppUserMap **userListInternal) bool
 	vmmMapGetNetU                  func(vmmHandle uintptr, ppNetMap **netListInternal) bool
@@ -154,6 +155,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetUnloadedModuleU, lib, "VMMDLL_Map_GetUnloadedModuleU")
 	purego.RegisterLibFunc(&vmmMapGetModuleFromNameU, lib, "VMMDLL_Map_GetModuleFromNameU")
 	purego.RegisterLibFunc(&vmmMapGetPteU, lib, "VMMDLL_Map_GetPteU")
+	purego.RegisterLibFunc(&vmmMapGetKDeviceU, lib, "VMMDLL_Map_GetKDeviceU")
 	purego.RegisterLibFunc(&vmmMapGetKDriverU, lib, "VMMDLL_Map_GetKDriverU")
 	purego.RegisterLibFunc(&vmmMapGetUsersU, lib, "VMMDLL_Map_GetUsersU")
 	purego.RegisterLibFunc(&vmmMapGetNetU, lib, "VMMDLL_Map_GetNetU")
