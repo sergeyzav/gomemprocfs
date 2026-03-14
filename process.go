@@ -406,6 +406,23 @@ func (vmm *Vmm) GetProcessInfo(pid uint32) (*ProcessInfo, error) {
 	return &processInfo, nil
 }
 
+func (vmm *Vmm) GetProcessInfoAll() ([]ProcessInfo, error) {
+	var pInfoAll *ProcessInfo
+	var count uint32
+	if !vmmProcessGetInformationAll(vmm.vmmHandle, &pInfoAll, &count) {
+		return nil, errors.New("failed to get all process information")
+	}
+	if pInfoAll == nil || count == 0 {
+		return nil, nil
+	}
+	defer vmm.free(uintptr(unsafe.Pointer(pInfoAll)))
+
+	src := unsafe.Slice(pInfoAll, count)
+	result := make([]ProcessInfo, count)
+	copy(result, src)
+	return result, nil
+}
+
 func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 	var moduleListPtr *moduleListInternal
 	success := vmmMapGetModuleU(vmm.vmmHandle, pid, &moduleListPtr, 0)
