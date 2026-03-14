@@ -29,6 +29,9 @@ var (
 	vmmProcessGetInformation       func(vmmHandle uintptr, pid uint32, pProcessInformation unsafe.Pointer, pcbProcessInformation *uint32) bool
 	vmmProcessGetInformationAll    func(vmmHandle uintptr, ppInfoAll **ProcessInfo, pcInfo *uint32) bool
 	vmmMemRead                     func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmMemReadEx                   func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32, pcbRead *uint32, flags uint64) bool
+	vmmMemReadPage                 func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer) bool
+	vmmMemPrefetchPages            func(vmmHandle uintptr, pid uint32, pAddresses unsafe.Pointer, cAddresses uint32) bool
 	vmmMemWrite                    func(vmmHandle uintptr, pid uint32, addr uint64, pb unsafe.Pointer, cb uint32) bool
 	vmmMemVirt2Phys                func(vmmHandle uintptr, pid uint32, va uint64, pa *uint64) bool
 	vmmProcessGetModuleBaseU       func(vmmHandle uintptr, pid uint32, moduleName string) uint64
@@ -155,6 +158,9 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmProcessGetInformation, lib, "VMMDLL_ProcessGetInformation")
 	purego.RegisterLibFunc(&vmmProcessGetInformationAll, lib, "VMMDLL_ProcessGetInformationAll")
 	purego.RegisterLibFunc(&vmmMemRead, lib, "VMMDLL_MemRead")
+	purego.RegisterLibFunc(&vmmMemReadEx, lib, "VMMDLL_MemReadEx")
+	purego.RegisterLibFunc(&vmmMemReadPage, lib, "VMMDLL_MemReadPage")
+	purego.RegisterLibFunc(&vmmMemPrefetchPages, lib, "VMMDLL_MemPrefetchPages")
 	purego.RegisterLibFunc(&vmmMemWrite, lib, "VMMDLL_MemWrite")
 	purego.RegisterLibFunc(&vmmMemVirt2Phys, lib, "VMMDLL_MemVirt2Phys")
 	purego.RegisterLibFunc(&vmmProcessGetModuleBaseU, lib, "VMMDLL_ProcessGetModuleBaseU")
