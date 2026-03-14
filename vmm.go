@@ -59,6 +59,14 @@ var (
 	vmmMapGetThreadCallstackU      func(vmmHandle uintptr, pid, tid, flags uint32, ppCallstackMap **threadCallstackInternal) bool
 	vmmProcessGetSectionsU         func(vmmHandle uintptr, pid uint32, moduleName string, pSections unsafe.Pointer, cSections uint32, pcSections *uint32) bool
 	vmmProcessGetDirectoriesU      func(vmmHandle uintptr, pid uint32, moduleName string, pDirectories unsafe.Pointer) bool
+	vmmScatterInitialize           func(vmmHandle uintptr, pid uint32, flags uint32) uintptr
+	vmmScatterPrepare              func(hS uintptr, va uint64, cb uint32) bool
+	vmmScatterPrepareWrite         func(hS uintptr, va uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmScatterExecute              func(hS uintptr) bool
+	vmmScatterExecuteRead          func(hS uintptr) bool
+	vmmScatterRead                 func(hS uintptr, va uint64, cb uint32, pb unsafe.Pointer, pcbRead *uint32) bool
+	vmmScatterClear                func(hS uintptr, pid uint32, flags uint32) bool
+	vmmScatterCloseHandle          func(hS uintptr)
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -177,6 +185,14 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetThreadCallstackU, lib, "VMMDLL_Map_GetThread_CallstackU")
 	purego.RegisterLibFunc(&vmmProcessGetSectionsU, lib, "VMMDLL_ProcessGetSectionsU")
 	purego.RegisterLibFunc(&vmmProcessGetDirectoriesU, lib, "VMMDLL_ProcessGetDirectoriesU")
+	purego.RegisterLibFunc(&vmmScatterInitialize, lib, "VMMDLL_Scatter_Initialize")
+	purego.RegisterLibFunc(&vmmScatterPrepare, lib, "VMMDLL_Scatter_Prepare")
+	purego.RegisterLibFunc(&vmmScatterPrepareWrite, lib, "VMMDLL_Scatter_PrepareWrite")
+	purego.RegisterLibFunc(&vmmScatterExecute, lib, "VMMDLL_Scatter_Execute")
+	purego.RegisterLibFunc(&vmmScatterExecuteRead, lib, "VMMDLL_Scatter_ExecuteRead")
+	purego.RegisterLibFunc(&vmmScatterRead, lib, "VMMDLL_Scatter_Read")
+	purego.RegisterLibFunc(&vmmScatterClear, lib, "VMMDLL_Scatter_Clear")
+	purego.RegisterLibFunc(&vmmScatterCloseHandle, lib, "VMMDLL_Scatter_CloseHandle")
 
 	return nil
 }
