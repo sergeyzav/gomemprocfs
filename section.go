@@ -2,6 +2,21 @@ package memprocfs
 
 import "unsafe"
 
+// ImageDataDirectory mirrors the Windows IMAGE_DATA_DIRECTORY structure.
+type ImageDataDirectory struct {
+	VirtualAddress uint32
+	Size           uint32
+}
+
+// GetProcessDirectories retrieves the 16 PE data directories of a module.
+func (vmm *Vmm) GetProcessDirectories(pid uint32, moduleName string) ([16]ImageDataDirectory, error) {
+	var dirs [16]ImageDataDirectory
+	if !vmmProcessGetDirectoriesU(vmm.vmmHandle, pid, moduleName, unsafe.Pointer(&dirs[0])) {
+		return dirs, nil
+	}
+	return dirs, nil
+}
+
 // ImageSectionHeader mirrors the Windows IMAGE_SECTION_HEADER structure.
 type ImageSectionHeader struct {
 	Name                 [8]byte
