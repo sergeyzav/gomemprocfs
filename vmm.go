@@ -47,6 +47,7 @@ var (
 	vmmMapGetKDriverU              func(vmmHandle uintptr, ppKDriverMap **kdriverListInternal) bool
 	vmmMapGetKObjectU              func(vmmHandle uintptr, ppKObjectMap **kobjectListInternal) bool
 	vmmMapGetUsersU                func(vmmHandle uintptr, ppUserMap **userListInternal) bool
+	vmmMapGetPool                  func(vmmHandle uintptr, ppPoolMap **poolListInternal, flags uint32) bool
 	vmmMapGetNetU                  func(vmmHandle uintptr, ppNetMap **netListInternal) bool
 	vmmMapGetHeap                  func(vmmHandle uintptr, pid uint32, ppHeapMap **heapListInternal) bool
 	vmmMapGetHeapAlloc             func(vmmHandle uintptr, pid uint32, heapNumOrAddress uint64, ppHeapAllocMap **heapAllocListInternal) bool
@@ -160,6 +161,7 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetKDriverU, lib, "VMMDLL_Map_GetKDriverU")
 	purego.RegisterLibFunc(&vmmMapGetKObjectU, lib, "VMMDLL_Map_GetKObjectU")
 	purego.RegisterLibFunc(&vmmMapGetUsersU, lib, "VMMDLL_Map_GetUsersU")
+	purego.RegisterLibFunc(&vmmMapGetPool, lib, "VMMDLL_Map_GetPool")
 	purego.RegisterLibFunc(&vmmMapGetNetU, lib, "VMMDLL_Map_GetNetU")
 	purego.RegisterLibFunc(&vmmMapGetHeap, lib, "VMMDLL_Map_GetHeap")
 	purego.RegisterLibFunc(&vmmMapGetHeapAlloc, lib, "VMMDLL_Map_GetHeapAlloc")
