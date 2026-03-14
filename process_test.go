@@ -5,6 +5,21 @@ import (
 	"testing"
 )
 
+func TestGetProcessInfoAll(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	infos, err := vmm.GetProcessInfoAll()
+	if err != nil {
+		t.Fatalf("GetProcessInfoAll() failed: %v", err)
+	}
+	if len(infos) == 0 {
+		t.Fatal("Expected non-empty process list")
+	}
+	t.Logf("Got %d processes", len(infos))
+	t.Logf("First process: PID=%d Name=%s", infos[0].PID, infos[0].Name())
+}
+
 func TestGetPidList(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()
