@@ -84,6 +84,11 @@ var (
 	vmmMapGetPfnEx                 func(vmmHandle uintptr, pPfns unsafe.Pointer, cPfns uint32, ppPfnMap **pfnListInternal, flags uint32) bool
 	vmmMapGetVMU                   func(vmmHandle uintptr, ppVmMap **vmListInternal) bool
 	vmmWinGetThunkInfoIATU         func(vmmHandle uintptr, pid uint32, moduleName string, importModuleName string, importFunctionName string, pThunkInfo unsafe.Pointer) bool
+	vmmVmGetVmmHandle              func(vmmHandle uintptr, hVM uintptr) uintptr
+	vmmVmScatterInitialize         func(vmmHandle uintptr, hVM uintptr) uintptr
+	vmmVmMemRead                   func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmVmMemWrite                  func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pb unsafe.Pointer, cb uint32) bool
+	vmmVmMemTranslateGPA           func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pPA *uint64, pVA *uint64) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -227,6 +232,11 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmMapGetPfnEx, lib, "VMMDLL_Map_GetPfnEx")
 	purego.RegisterLibFunc(&vmmMapGetVMU, lib, "VMMDLL_Map_GetVMU")
 	purego.RegisterLibFunc(&vmmWinGetThunkInfoIATU, lib, "VMMDLL_WinGetThunkInfoIATU")
+	purego.RegisterLibFunc(&vmmVmGetVmmHandle, lib, "VMMDLL_VmGetVmmHandle")
+	purego.RegisterLibFunc(&vmmVmScatterInitialize, lib, "VMMDLL_VmScatterInitialize")
+	purego.RegisterLibFunc(&vmmVmMemRead, lib, "VMMDLL_VmMemRead")
+	purego.RegisterLibFunc(&vmmVmMemWrite, lib, "VMMDLL_VmMemWrite")
+	purego.RegisterLibFunc(&vmmVmMemTranslateGPA, lib, "VMMDLL_VmMemTranslateGPA")
 
 	return nil
 }
