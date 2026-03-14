@@ -70,6 +70,11 @@ var (
 	vmmScatterRead                 func(hS uintptr, va uint64, cb uint32, pb unsafe.Pointer, pcbRead *uint32) bool
 	vmmScatterClear                func(hS uintptr, pid uint32, flags uint32) bool
 	vmmScatterCloseHandle          func(hS uintptr)
+	vmmPdbLoad                     func(vmmHandle uintptr, pid uint32, vaModuleBase uint64, szModuleName unsafe.Pointer) bool
+	vmmPdbSymbolName               func(vmmHandle uintptr, szModule string, cbSymbolAddressOrOffset uint64, szSymbolName unsafe.Pointer, pdwDisplacement *uint32) bool
+	vmmPdbSymbolAddress            func(vmmHandle uintptr, szModule string, szSymbolName string, pvaSymbolAddress *uint64) bool
+	vmmPdbTypeSize                 func(vmmHandle uintptr, szModule string, szTypeName string, pcbTypeSize *uint32) bool
+	vmmPdbTypeChildOffset          func(vmmHandle uintptr, szModule string, szTypeName string, szTypeChildName string, pcbTypeChildOffset *uint32) bool
 )
 
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
@@ -199,6 +204,11 @@ func loadFunctions(lib uintptr) error {
 	purego.RegisterLibFunc(&vmmScatterRead, lib, "VMMDLL_Scatter_Read")
 	purego.RegisterLibFunc(&vmmScatterClear, lib, "VMMDLL_Scatter_Clear")
 	purego.RegisterLibFunc(&vmmScatterCloseHandle, lib, "VMMDLL_Scatter_CloseHandle")
+	purego.RegisterLibFunc(&vmmPdbLoad, lib, "VMMDLL_PdbLoad")
+	purego.RegisterLibFunc(&vmmPdbSymbolName, lib, "VMMDLL_PdbSymbolName")
+	purego.RegisterLibFunc(&vmmPdbSymbolAddress, lib, "VMMDLL_PdbSymbolAddress")
+	purego.RegisterLibFunc(&vmmPdbTypeSize, lib, "VMMDLL_PdbTypeSize")
+	purego.RegisterLibFunc(&vmmPdbTypeChildOffset, lib, "VMMDLL_PdbTypeChildOffset")
 
 	return nil
 }
