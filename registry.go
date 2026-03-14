@@ -126,6 +126,34 @@ func (vmm *Vmm) GetRegistryValues(keyPath string) ([]RegistryValue, error) {
 	return values, nil
 }
 
+// HiveReadEx reads up to cb bytes from a registry hive at registry address ra.
+// ra is the byte offset within the hive data space (regf header is NOT included).
+// flags: use MemFlagNone (0) for default behaviour; other VMMDLL_FLAG_* values are accepted.
+// Returns the data read and the actual byte count; a short read is not an error.
+func (vmm *Vmm) HiveReadEx(vaCMHive uint64, ra uint32, cb uint32, flags MemFlag) ([]byte, uint32, error) {
+	if cb == 0 {
+		return nil, 0, nil
+	}
+	buf := make([]byte, cb)
+	var cbRead uint32
+	if !vmmWinRegHiveReadEx(vmm.vmmHandle, vaCMHive, ra, unsafe.Pointer(&buf[0]), cb, &cbRead, uint64(flags)) && cbRead == 0 {
+		return nil, 0, fmt.Errorf("HiveReadEx failed: vaCMHive=0x%X ra=0x%X", vaCMHive, ra)
+	}
+	return buf[:cbRead], cbRead, nil
+}
+
+// HiveWrite writes data to a registry hive at registry address ra.
+// Note: requires a live/writable target — will fail on a read-only dump.
+func (vmm *Vmm) HiveWrite(vaCMHive uint64, ra uint32, data []byte) error {
+	if len(data) == 0 {
+		return nil
+	}
+	if !vmmWinRegHiveWrite(vmm.vmmHandle, vaCMHive, ra, unsafe.Pointer(&data[0]), uint32(len(data))) {
+		return fmt.Errorf("HiveWrite failed: vaCMHive=0x%X ra=0x%X", vaCMHive, ra)
+	}
+	return nil
+}
+
 // RegQueryValueEx queries a specific registry value by full path.
 // keyValuePath example: "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProductName"
 func (vmm *Vmm) RegQueryValueEx(keyValuePath string) (uint32, []byte, error) {
