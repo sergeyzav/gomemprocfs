@@ -423,6 +423,14 @@ func (vmm *Vmm) GetProcessInfoAll() ([]ProcessInfo, error) {
 	return result, nil
 }
 
+func (vmm *Vmm) GetModuleBase(pid uint32, moduleName string) (uint64, error) {
+	base := vmmProcessGetModuleBaseU(vmm.vmmHandle, pid, moduleName)
+	if base == 0 {
+		return 0, fmt.Errorf("failed to get module base for '%s' in PID %d", moduleName, pid)
+	}
+	return base, nil
+}
+
 func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 	var moduleListPtr *moduleListInternal
 	success := vmmMapGetModuleU(vmm.vmmHandle, pid, &moduleListPtr, 0)
