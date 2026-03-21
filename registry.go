@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // RegistryHive represents a single registry hive.
@@ -29,6 +31,8 @@ type registryHiveInfoInternal struct {
 	_             [0x10]uint64
 }
 
+// GetRegistryHives returns all registry hives present in the memory image.
+// Each hive includes its base address, name, short name, and path.
 func (vmm *Vmm) GetRegistryHives() ([]RegistryHive, error) {
 	var requiredHives uint32
 	// First call to get the number of hives.
@@ -49,9 +53,9 @@ func (vmm *Vmm) GetRegistryHives() ([]RegistryHive, error) {
 	for i := 0; i < int(retrievedHives); i++ {
 		result[i] = RegistryHive{
 			BaseAddress: hivesInternal[i].VaCMHIVE,
-			Name:        byteSliceToString(hivesInternal[i].NameRaw[:]),
-			Path:        byteSliceToString(hivesInternal[i].PathRaw[:]),
-			ShortName:   byteSliceToString(hivesInternal[i].NameShortRaw[:]),
+			Name:        ffi.ByteSliceToString(hivesInternal[i].NameRaw[:]),
+			Path:        ffi.ByteSliceToString(hivesInternal[i].PathRaw[:]),
+			ShortName:   ffi.ByteSliceToString(hivesInternal[i].NameShortRaw[:]),
 		}
 	}
 

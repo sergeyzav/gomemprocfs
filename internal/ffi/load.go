@@ -1,9 +1,10 @@
 //go:build !windows
 
-package memprocfs
+package ffi
 
 import "github.com/ebitengine/purego"
 
-func openLibrary(name string) (uintptr, error) {
+// OpenLibrary loads the shared library at the given path.
+func OpenLibrary(name string) (uintptr, error) {
 	return purego.Dlopen(name, purego.RTLD_NOW|purego.RTLD_GLOBAL)
 }

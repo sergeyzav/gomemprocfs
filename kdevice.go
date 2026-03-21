@@ -1,6 +1,10 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
+)
 
 // KDeviceEntry represents a single kernel device object entry.
 type KDeviceEntry struct {
@@ -43,7 +47,8 @@ type kdeviceListInternal struct {
 	// FAM entries follow
 }
 
-// GetKDeviceList retrieves the list of kernel device objects.
+// GetKDeviceList retrieves the list of Windows kernel device objects.
+// Each entry includes the device's virtual address, type, associated driver object, and optional volume info.
 func (vmm *Vmm) GetKDeviceList() (*KDeviceList, error) {
 	var pMap *kdeviceListInternal
 	if !vmmMapGetKDeviceU(vmm.vmmHandle, &pMap) {
@@ -58,18 +63,18 @@ func (vmm *Vmm) GetKDeviceList() (*KDeviceList, error) {
 		return &KDeviceList{Version: pMap.DwVersion}, nil
 	}
 
-	entriesInternal := FAM[kdeviceListInternal, kdeviceEntryInternal](pMap, int(pMap.CMap))
+	entriesInternal := ffi.FAM[kdeviceListInternal, kdeviceEntryInternal](pMap, int(pMap.CMap))
 	entries := make([]KDeviceEntry, pMap.CMap)
 	for i, e := range entriesInternal {
 		entries[i] = KDeviceEntry{
 			Va:                 e.Va,
 			Depth:              e.IDepth,
 			DeviceType:         e.DwDeviceType,
-			DeviceTypeName:     cStringToGo(e.UszDeviceType),
+			DeviceTypeName:     ffi.CStringToGo(e.UszDeviceType),
 			VaDriverObject:     e.VaDriverObject,
 			VaAttachedDevice:   e.VaAttachedDevice,
 			VaFileSystemDevice: e.VaFileSystemDevice,
-			VolumeInfo:         cStringToGo(e.UszVolumeInfo),
+			VolumeInfo:         ffi.CStringToGo(e.UszVolumeInfo),
 		}
 	}
 

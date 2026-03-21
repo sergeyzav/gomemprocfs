@@ -1,6 +1,10 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
+)
 
 // KObjectEntry represents a single kernel object entry.
 type KObjectEntry struct {
@@ -39,7 +43,8 @@ type kobjectListInternal struct {
 	// FAM entries follow
 }
 
-// GetKObjectList retrieves the list of kernel objects.
+// GetKObjectList retrieves the Windows kernel object manager directory tree.
+// Each entry includes the object's virtual address, parent, children, name, and type.
 func (vmm *Vmm) GetKObjectList() (*KObjectList, error) {
 	var pMap *kobjectListInternal
 	if !vmmMapGetKObjectU(vmm.vmmHandle, &pMap) {
@@ -54,7 +59,7 @@ func (vmm *Vmm) GetKObjectList() (*KObjectList, error) {
 		return &KObjectList{Version: pMap.DwVersion}, nil
 	}
 
-	entriesInternal := FAM[kobjectListInternal, kobjectEntryInternal](pMap, int(pMap.CMap))
+	entriesInternal := ffi.FAM[kobjectListInternal, kobjectEntryInternal](pMap, int(pMap.CMap))
 	entries := make([]KObjectEntry, pMap.CMap)
 	for i, e := range entriesInternal {
 		var children []uint64
@@ -67,8 +72,8 @@ func (vmm *Vmm) GetKObjectList() (*KObjectList, error) {
 			Va:       e.Va,
 			VaParent: e.VaParent,
 			Children: children,
-			Name:     cStringToGo(e.UszName),
-			Type:     cStringToGo(e.UszType),
+			Name:     ffi.CStringToGo(e.UszName),
+			Type:     ffi.CStringToGo(e.UszType),
 		}
 	}
 

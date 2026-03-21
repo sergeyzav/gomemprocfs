@@ -1,6 +1,10 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
+)
 
 // PhysMemEntry represents a physical memory range.
 type PhysMemEntry struct {
@@ -31,6 +35,7 @@ type PhysMemList struct {
 }
 
 // GetPhysMem retrieves the physical memory map of the system.
+// Returns the list of physical memory ranges (base address and size) reported by the hardware/hypervisor.
 func (vmm *Vmm) GetPhysMem() (*PhysMemList, error) {
 	var pPhysMemMap *physMemListInternal
 	success := vmmMapGetPhysMem(vmm.vmmHandle, &pPhysMemMap)
@@ -49,7 +54,7 @@ func (vmm *Vmm) GetPhysMem() (*PhysMemList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[physMemListInternal, physMemEntryInternal](pPhysMemMap, int(pPhysMemMap.CMap))
+	entriesInternal := ffi.FAM[physMemListInternal, physMemEntryInternal](pPhysMemMap, int(pPhysMemMap.CMap))
 
 	entries := make([]PhysMemEntry, pPhysMemMap.CMap)
 	for i, entry := range entriesInternal {

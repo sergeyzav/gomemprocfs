@@ -2,7 +2,9 @@ package memprocfs
 
 import "errors"
 
-// Map structure versions
+// Map*Version constants define the vmmdll structure versions this library was built against.
+// Get* methods return an ErrUnsupported*Version error if the loaded native library
+// returns a different version, indicating a vmmdll API mismatch.
 const (
 	MapPTEVersion             = 2
 	MapVADVersion             = 6
@@ -27,6 +29,8 @@ const (
 	MapServiceVersion         = 3
 )
 
+// ErrUnsupported*Version errors are returned when the native vmmdll library returns
+// a map structure version that does not match the expected Map*Version constant.
 var (
 	ErrUnsupportedPTEVersion             = errors.New("unsupported PTE version")
 	ErrUnsupportedVADVersion             = errors.New("unsupported VAD version")

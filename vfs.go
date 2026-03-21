@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // vfsPath normalises a path for VfsListBlobU which requires backslash separators.
@@ -63,12 +65,12 @@ func (vmm *Vmm) VfsList(path string) ([]VfsEntry, error) {
 		return nil, nil
 	}
 
-	entries := FAM[vfsFileListBlobInternal, vfsFileListBlobEntryInternal](hdr, count)
+	entries := ffi.FAM[vfsFileListBlobInternal, vfsFileListBlobEntryInternal](hdr, count)
 	result := make([]VfsEntry, count)
 	for i, e := range entries {
 		// Name is a null-terminated string at UszMultiText + OuszName.
 		namePtr := hdr.UszMultiText + uintptr(e.OuszName)
-		name := cStringToGo(namePtr)
+		name := ffi.CStringToGo(namePtr)
 		isDir := e.CbFileSize == ^uint64(0)
 		result[i] = VfsEntry{
 			Name:           name,

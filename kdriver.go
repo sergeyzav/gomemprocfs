@@ -1,6 +1,10 @@
 package memprocfs
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
+)
 
 // KDriverEntry represents a single kernel driver entry.
 type KDriverEntry struct {
@@ -43,7 +47,8 @@ type kdriverListInternal struct {
 	// FAM entries follow
 }
 
-// GetKDriverList retrieves the list of kernel drivers.
+// GetKDriverList retrieves the list of loaded Windows kernel drivers.
+// Each entry includes the driver's virtual address, image path, service key name, and MajorFunction dispatch table.
 func (vmm *Vmm) GetKDriverList() (*KDriverList, error) {
 	var pMap *kdriverListInternal
 	if !vmmMapGetKDriverU(vmm.vmmHandle, &pMap) {
@@ -58,7 +63,7 @@ func (vmm *Vmm) GetKDriverList() (*KDriverList, error) {
 		return &KDriverList{Version: pMap.DwVersion}, nil
 	}
 
-	entriesInternal := FAM[kdriverListInternal, kdriverEntryInternal](pMap, int(pMap.CMap))
+	entriesInternal := ffi.FAM[kdriverListInternal, kdriverEntryInternal](pMap, int(pMap.CMap))
 	entries := make([]KDriverEntry, pMap.CMap)
 	for i, e := range entriesInternal {
 		entries[i] = KDriverEntry{
@@ -66,9 +71,9 @@ func (vmm *Vmm) GetKDriverList() (*KDriverList, error) {
 			VaDriverStart:  e.VaDriverStart,
 			CbDriverSize:   e.CbDriverSize,
 			VaDeviceObject: e.VaDeviceObject,
-			Name:           cStringToGo(e.UszName),
-			Path:           cStringToGo(e.UszPath),
-			ServiceKeyName: cStringToGo(e.UszServiceKey),
+			Name:           ffi.CStringToGo(e.UszName),
+			Path:           ffi.CStringToGo(e.UszPath),
+			ServiceKeyName: ffi.CStringToGo(e.UszServiceKey),
 			MajorFunction:  e.MajorFunction,
 		}
 	}
