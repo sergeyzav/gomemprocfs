@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // UserEntry represents a single user entry.
@@ -39,6 +41,7 @@ type userListInternal struct {
 }
 
 // GetUserList retrieves the list of users from the system.
+// GetUserList returns all user accounts that are (or were) logged on to the system.
 func (vmm *Vmm) GetUserList() (*UserList, error) {
 	var pUserMap *userListInternal
 	if !vmmMapGetUsersU(vmm.vmmHandle, &pUserMap) {
@@ -53,13 +56,13 @@ func (vmm *Vmm) GetUserList() (*UserList, error) {
 		return &UserList{Version: pUserMap.DwVersion}, nil
 	}
 
-	entriesInternal := FAM[userListInternal, userEntryInternal](pUserMap, int(pUserMap.CMap))
+	entriesInternal := ffi.FAM[userListInternal, userEntryInternal](pUserMap, int(pUserMap.CMap))
 	entries := make([]UserEntry, pUserMap.CMap)
 	for i, e := range entriesInternal {
 		entries[i] = UserEntry{
-			Text:      cStringToGo(e.UszText),
+			Text:      ffi.CStringToGo(e.UszText),
 			VaRegHive: e.VaRegHive,
-			SID:       cStringToGo(e.UszSID),
+			SID:       ffi.CStringToGo(e.UszSID),
 		}
 	}
 

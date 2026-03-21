@@ -5,6 +5,8 @@ import (
 	"unsafe"
 )
 
+// MemWrite writes data to virtual address addr in process pid.
+// Note: requires a live/writable target — will fail on a read-only memory dump.
 func (vmm *Vmm) MemWrite(pid uint32, addr uint64, data []byte) error {
 	if len(data) == 0 {
 		return nil
@@ -15,6 +17,7 @@ func (vmm *Vmm) MemWrite(pid uint32, addr uint64, data []byte) error {
 	return nil
 }
 
+// MemVirt2Phys translates virtual address va in process pid to a physical address.
 func (vmm *Vmm) MemVirt2Phys(pid uint32, va uint64) (uint64, error) {
 	var pa uint64
 	if !vmmMemVirt2Phys(vmm.vmmHandle, pid, va, &pa) {
@@ -23,6 +26,9 @@ func (vmm *Vmm) MemVirt2Phys(pid uint32, va uint64) (uint64, error) {
 	return pa, nil
 }
 
+// MemRead reads size bytes from virtual address addr in process pid.
+// Use pid = 0xFFFFFFFF (PidProcessWithKernelMemory) for kernel/physical reads.
+// Returns an error if any byte in the range is unreadable; use MemReadEx for partial reads.
 func (vmm *Vmm) MemRead(pid uint32, addr uint64, size uint32) ([]byte, error) {
 	buffer := make([]byte, size)
 	success := vmmMemRead(vmm.vmmHandle, pid, addr, unsafe.Pointer(&buffer[0]), size)

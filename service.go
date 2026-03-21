@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // ServiceStatus mirrors the Windows SERVICE_STATUS structure.
@@ -68,6 +70,7 @@ type ServiceList struct {
 }
 
 // GetServiceList retrieves the list of services from the system.
+// GetServiceList returns all Windows services registered in the Service Control Manager.
 func (vmm *Vmm) GetServiceList() (*ServiceList, error) {
 	var pServiceMap *serviceListInternal
 	success := vmmMapGetServicesU(vmm.vmmHandle, &pServiceMap)
@@ -86,7 +89,7 @@ func (vmm *Vmm) GetServiceList() (*ServiceList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[serviceListInternal, serviceEntryInternal](pServiceMap, int(pServiceMap.CMap))
+	entriesInternal := ffi.FAM[serviceListInternal, serviceEntryInternal](pServiceMap, int(pServiceMap.CMap))
 
 	entries := make([]ServiceEntry, pServiceMap.CMap)
 	for i, entry := range entriesInternal {
@@ -95,12 +98,12 @@ func (vmm *Vmm) GetServiceList() (*ServiceList, error) {
 			Ordinal:     entry.DwOrdinal,
 			StartType:   entry.DwStartType,
 			Status:      entry.ServiceStatus,
-			ServiceName: cStringToGo(entry.UszServiceName),
-			DisplayName: cStringToGo(entry.UszDisplayName),
-			Path:        cStringToGo(entry.UszPath),
-			UserType:    cStringToGo(entry.UszUserTp),
-			UserAccount: cStringToGo(entry.UszUserAcct),
-			ImagePath:   cStringToGo(entry.UszImagePath),
+			ServiceName: ffi.CStringToGo(entry.UszServiceName),
+			DisplayName: ffi.CStringToGo(entry.UszDisplayName),
+			Path:        ffi.CStringToGo(entry.UszPath),
+			UserType:    ffi.CStringToGo(entry.UszUserTp),
+			UserAccount: ffi.CStringToGo(entry.UszUserAcct),
+			ImagePath:   ffi.CStringToGo(entry.UszImagePath),
 			PID:         entry.DwPID,
 		}
 	}

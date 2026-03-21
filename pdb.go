@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // PdbLoad loads the PDB symbol file for the given module and returns
@@ -13,7 +15,7 @@ func (vmm *Vmm) PdbLoad(pid uint32, vaModuleBase uint64) (string, error) {
 	if !vmmPdbLoad(vmm.vmmHandle, pid, vaModuleBase, unsafe.Pointer(&buf[0])) {
 		return "", fmt.Errorf("PdbLoad failed for PID %d module base 0x%X", pid, vaModuleBase)
 	}
-	return byteSliceToString(buf), nil
+	return ffi.ByteSliceToString(buf), nil
 }
 
 // PdbSymbolName resolves a symbol name from a virtual address or offset
@@ -24,7 +26,7 @@ func (vmm *Vmm) PdbSymbolName(module string, addressOrOffset uint64) (string, ui
 	if !vmmPdbSymbolName(vmm.vmmHandle, module, addressOrOffset, unsafe.Pointer(&buf[0]), &displacement) {
 		return "", 0, fmt.Errorf("PdbSymbolName failed for module %q address 0x%X", module, addressOrOffset)
 	}
-	return byteSliceToString(buf), displacement, nil
+	return ffi.ByteSliceToString(buf), displacement, nil
 }
 
 // PdbSymbolAddress returns the virtual address of a symbol in the given module.

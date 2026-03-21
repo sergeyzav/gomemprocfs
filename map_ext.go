@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // ─── VadEx ───────────────────────────────────────────────────────────────────
@@ -62,7 +64,7 @@ func (vmm *Vmm) GetVadExList(pid uint32, oPage uint32, cPage uint32) (*VadExList
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 
 	count := int(pMap.CMap)
-	entries := FAM[vadExListInternal, vadExEntryInternal](pMap, count)
+	entries := ffi.FAM[vadExListInternal, vadExEntryInternal](pMap, count)
 	result := &VadExList{
 		Count:   pMap.CMap,
 		Entries: make([]VadExEntry, count),
@@ -175,7 +177,7 @@ func (vmm *Vmm) GetPfnList(pfns []uint32, flags uint32) (*PfnList, error) {
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 
 	count := int(pMap.CMap)
-	entries := FAM[pfnListInternal, pfnEntryInternal](pMap, count)
+	entries := ffi.FAM[pfnListInternal, pfnEntryInternal](pMap, count)
 	result := &PfnList{
 		Count:   pMap.CMap,
 		Entries: make([]PfnEntry, count),
@@ -264,7 +266,7 @@ func (vmm *Vmm) GetVMList() (*VMList, error) {
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 
 	count := int(pMap.CMap)
-	entries := FAM[vmListInternal, vmEntryInternal](pMap, count)
+	entries := ffi.FAM[vmListInternal, vmEntryInternal](pMap, count)
 	result := &VMList{
 		Count:   pMap.CMap,
 		Entries: make([]VmEntry, count),
@@ -272,7 +274,7 @@ func (vmm *Vmm) GetVMList() (*VMList, error) {
 	for i, e := range entries {
 		result.Entries[i] = VmEntry{
 			Handle:           e.HVM,
-			Name:             cStringToGo(e.UszName),
+			Name:             ffi.CStringToGo(e.UszName),
 			GpaMax:           e.GpaMax,
 			Type:             VmType(e.Tp),
 			IsActive:         e.FActive != 0,

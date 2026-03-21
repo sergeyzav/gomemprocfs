@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 const (
@@ -34,8 +36,10 @@ const (
 	SystemWindows32       SystemType = 4
 )
 
+// ProcessIntegrityLevel corresponds to Windows mandatory integrity levels.
 type ProcessIntegrityLevel uint32
 
+// ProcessInfoStringOptions selects which string field to retrieve via GetProcessInfoString.
 type ProcessInfoStringOptions uint32
 
 const (
@@ -345,6 +349,7 @@ func (pi *ProcessInfo) NameLong() string {
 	return string(bytes.TrimRight(pi.NameLongRaw[:], "\x00"))
 }
 
+// GetPidList returns the PIDs of all currently running processes.
 func (vmm *Vmm) GetPidList() ([]uint32, error) {
 	var count uint64
 	vmmPidList(vmm.vmmHandle, nil, &count)
@@ -359,6 +364,8 @@ func (vmm *Vmm) GetPidList() ([]uint32, error) {
 	return pids[:count], nil
 }
 
+// GetPidByName returns the PID of the first process whose name matches processName.
+// The match is case-insensitive and against the short (≤15 char) process name.
 func (vmm *Vmm) GetPidByName(processName string) (uint32, error) {
 	var pid uint32
 	success := vmmPidGetFromName(vmm.vmmHandle, processName, &pid)
@@ -368,15 +375,18 @@ func (vmm *Vmm) GetPidByName(processName string) (uint32, error) {
 	return pid, nil
 }
 
+// GetProcessInfoString returns a specific string field for a process.
+// opt selects which string to return (e.g. ProcessInformationOptStringCmdline for the command line).
 func (vmm *Vmm) GetProcessInfoString(pid uint32, opt ProcessInfoStringOptions) (string, error) {
 	strPtr := vmmProcessGetInformationString(vmm.vmmHandle, pid, uint32(opt))
 	if strPtr == 0 {
 		return "", fmt.Errorf("failed to get process info string for PID %d, option %d", pid, opt)
 	}
 	defer vmm.free(strPtr)
-	return cStringToGo(strPtr), nil
+	return ffi.CStringToGo(strPtr), nil
 }
 
+// GetProcessInfo returns detailed information about a single process.
 func (vmm *Vmm) GetProcessInfo(pid uint32) (*ProcessInfo, error) {
 	var requiredSize uint32
 	// First call with nil to get the required buffer size.
@@ -406,6 +416,7 @@ func (vmm *Vmm) GetProcessInfo(pid uint32) (*ProcessInfo, error) {
 	return &processInfo, nil
 }
 
+// GetProcessInfoAll returns detailed information for every running process in one call.
 func (vmm *Vmm) GetProcessInfoAll() ([]ProcessInfo, error) {
 	var pInfoAll *ProcessInfo
 	var count uint32
@@ -423,6 +434,8 @@ func (vmm *Vmm) GetProcessInfoAll() ([]ProcessInfo, error) {
 	return result, nil
 }
 
+// GetProcAddress returns the virtual address of an exported function in a module,
+// equivalent to the Windows GetProcAddress API.
 func (vmm *Vmm) GetProcAddress(pid uint32, moduleName string, funcName string) (uint64, error) {
 	addr := vmmProcessGetProcAddressU(vmm.vmmHandle, pid, moduleName, funcName)
 	if addr == 0 {
@@ -431,6 +444,7 @@ func (vmm *Vmm) GetProcAddress(pid uint32, moduleName string, funcName string) (
 	return addr, nil
 }
 
+// GetModuleBase returns the base virtual address of a loaded module in process pid.
 func (vmm *Vmm) GetModuleBase(pid uint32, moduleName string) (uint64, error) {
 	base := vmmProcessGetModuleBaseU(vmm.vmmHandle, pid, moduleName)
 	if base == 0 {
@@ -439,6 +453,7 @@ func (vmm *Vmm) GetModuleBase(pid uint32, moduleName string) (uint64, error) {
 	return base, nil
 }
 
+// GetModuleList returns all loaded modules (DLLs and EXEs) for process pid.
 func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 	var moduleListPtr *moduleListInternal
 	success := vmmMapGetModuleU(vmm.vmmHandle, pid, &moduleListPtr, 0)
@@ -447,7 +462,7 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(moduleListPtr)))
 
-	internalEntries := FAM[moduleListInternal, moduleEntryInternal](moduleListPtr, int(moduleListPtr.CMap))
+	internalEntries := ffi.FAM[moduleListInternal, moduleEntryInternal](moduleListPtr, int(moduleListPtr.CMap))
 
 	multiTextSlice := unsafe.Slice((*byte)(unsafe.Pointer(moduleListPtr.PbMultiText)), moduleListPtr.CbMultiText)
 
@@ -464,8 +479,8 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 			EntryPoint:   entry.VaEntry,
 			ImageSize:    entry.CbImageSize,
 			IsWow64:      entry.FWoW64,
-			Name:         cStringToGo(entry.UszText),
-			FullName:     cStringToGo(entry.UszFullName),
+			Name:         ffi.CStringToGo(entry.UszText),
+			FullName:     ffi.CStringToGo(entry.UszFullName),
 			Type:         entry.Tp,
 			FileSize:     entry.CbFileSizeRaw,
 			SectionCount: entry.CSection,
@@ -477,6 +492,8 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 	return result, nil
 }
 
+// GetVadList returns the Virtual Address Descriptor entries for process pid.
+// If identifyModules is true, vmmdll will attempt to resolve module names for each VAD region.
 func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 	var vadListPtr *vadListInternal
 	success := vmmMapGetVadU(vmm.vmmHandle, pid, identifyModules, &vadListPtr)
@@ -485,7 +502,7 @@ func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(vadListPtr)))
 
-	internalEntries := FAM[vadListInternal, vadEntryInternal](vadListPtr, int(vadListPtr.CMap))
+	internalEntries := ffi.FAM[vadListInternal, vadEntryInternal](vadListPtr, int(vadListPtr.CMap))
 
 	multiTextSlice := unsafe.Slice((*byte)(unsafe.Pointer(vadListPtr.PbMultiText)), vadListPtr.CbMultiText)
 
@@ -517,7 +534,7 @@ func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 			PrototypePteSize: entry.CbPrototypePte,
 			PrototypePte:     entry.VaPrototypePte,
 			Subsection:       entry.VaSubsection,
-			Text:             cStringToGo(entry.UszText),
+			Text:             ffi.CStringToGo(entry.UszText),
 			FileObject:       entry.VaFileObject,
 			VadExPages:       entry.CVadExPages,
 			VadExPagesBase:   entry.CVadExPagesBase,
@@ -527,6 +544,7 @@ func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 	return result, nil
 }
 
+// GetThreadList returns all threads for process pid.
 func (vmm *Vmm) GetThreadList(pid uint32) (*ThreadList, error) {
 	var threadListPtr *threadListInternal
 	success := vmmMapGetThread(vmm.vmmHandle, pid, &threadListPtr)
@@ -535,7 +553,7 @@ func (vmm *Vmm) GetThreadList(pid uint32) (*ThreadList, error) {
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(threadListPtr)))
 
-	internalEntries := FAM[threadListInternal, threadEntryInternal](threadListPtr, int(threadListPtr.CMap))
+	internalEntries := ffi.FAM[threadListInternal, threadEntryInternal](threadListPtr, int(threadListPtr.CMap))
 
 	result := &ThreadList{
 		Version: threadListPtr.Version,
@@ -577,6 +595,7 @@ func (vmm *Vmm) GetThreadList(pid uint32) (*ThreadList, error) {
 	return result, nil
 }
 
+// EatList holds the Export Address Table of a module.
 type EatList struct {
 	Version                    uint32
 	OrdinalBase                uint32
@@ -630,6 +649,7 @@ type eatMapInternal struct {
 }
 
 // GetEatList retrieves the Export Address Table (EAT) for a given module in a process.
+// GetEatList returns the Export Address Table for moduleName in process pid.
 func (vmm *Vmm) GetEatList(pid uint32, moduleName string) (*EatList, error) {
 	var pEatMap *eatMapInternal
 	success := vmmMapGetEATU(vmm.vmmHandle, pid, moduleName, &pEatMap)
@@ -638,15 +658,15 @@ func (vmm *Vmm) GetEatList(pid uint32, moduleName string) (*EatList, error) {
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pEatMap)))
 
-	entriesInternal := FAM[eatMapInternal, eatEntryInternal](pEatMap, int(pEatMap.CMap))
+	entriesInternal := ffi.FAM[eatMapInternal, eatEntryInternal](pEatMap, int(pEatMap.CMap))
 
 	entries := make([]EatEntry, pEatMap.CMap)
 	for i := 0; i < int(pEatMap.CMap); i++ {
 		entries[i] = EatEntry{
 			FunctionAddress:       entriesInternal[i].VaFunction,
 			Ordinal:               entriesInternal[i].DwOrdinal,
-			FunctionName:          cStringToGo(entriesInternal[i].UszFunction),
-			ForwardedFunctionName: cStringToGo(entriesInternal[i].UszForwardedFunction),
+			FunctionName:          ffi.CStringToGo(entriesInternal[i].UszFunction),
+			ForwardedFunctionName: ffi.CStringToGo(entriesInternal[i].UszForwardedFunction),
 			OFunctionsArray:       entriesInternal[i].OFunctionsArray,
 			ONamesArray:           entriesInternal[i].ONamesArray,
 		}
@@ -667,6 +687,7 @@ func (vmm *Vmm) GetEatList(pid uint32, moduleName string) (*EatList, error) {
 	}, nil
 }
 
+// GetHandleList returns all open kernel handles for process pid.
 func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
 	var handleListPtr *handleListInternal
 	success := vmmMapGetHandleU(vmm.vmmHandle, pid, &handleListPtr)
@@ -675,7 +696,7 @@ func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(handleListPtr)))
 
-	internalEntries := FAM[handleListInternal, handleEntryInternal](handleListPtr, int(handleListPtr.CMap))
+	internalEntries := ffi.FAM[handleListInternal, handleEntryInternal](handleListPtr, int(handleListPtr.CMap))
 
 	multiTextSlice := unsafe.Slice((*byte)(unsafe.Pointer(handleListPtr.PbMultiText)), handleListPtr.CbMultiText)
 
@@ -696,10 +717,10 @@ func (vmm *Vmm) GetHandleList(pid uint32) (*HandleList, error) {
 			PointerCount:       entry.QwPointerCount,
 			ObjectCreateInfo:   entry.VaObjectCreateInfo,
 			SecurityDescriptor: entry.VaSecurityDescriptor,
-			Text:               cStringToGo(entry.UszText),
+			Text:               ffi.CStringToGo(entry.UszText),
 			PID:                entry.DwPID,
 			PoolTag:            entry.DwPoolTag,
-			Type:               cStringToGo(entry.UszType),
+			Type:               ffi.CStringToGo(entry.UszType),
 		}
 	}
 
@@ -765,6 +786,7 @@ type iatMapInternal struct {
 }
 
 // GetIatList retrieves the Import Address Table (IAT) for a given module in a process.
+// GetIatList returns the Import Address Table for moduleName in process pid.
 func (vmm *Vmm) GetIatList(pid uint32, moduleName string) (*IatList, error) {
 
 	var pIatMap *iatMapInternal
@@ -782,14 +804,14 @@ func (vmm *Vmm) GetIatList(pid uint32, moduleName string) (*IatList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[iatMapInternal, iatEntryInternal](pIatMap, int(pIatMap.CMap))
+	entriesInternal := ffi.FAM[iatMapInternal, iatEntryInternal](pIatMap, int(pIatMap.CMap))
 
 	entries := make([]IatEntry, pIatMap.CMap)
 	for i := 0; i < int(pIatMap.CMap); i++ {
 		entries[i] = IatEntry{
 			FunctionAddress: entriesInternal[i].VaFunction,
-			FunctionName:    cStringToGo(entriesInternal[i].UszFunction),
-			ModuleName:      cStringToGo(entriesInternal[i].UszModule),
+			FunctionName:    ffi.CStringToGo(entriesInternal[i].UszFunction),
+			ModuleName:      ffi.CStringToGo(entriesInternal[i].UszModule),
 			Thunk: IatThunk{
 				Is32Bit:               entriesInternal[i].Thunk.F32,
 				Hint:                  entriesInternal[i].Thunk.Hint,
@@ -853,6 +875,7 @@ type unloadedModuleListInternal struct {
 }
 
 // GetUnloadedModuleList retrieves the list of unloaded modules for a given process.
+// GetUnloadedModuleList returns modules that were previously loaded and then unloaded in process pid.
 func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 	var pUnloadedModuleMap *unloadedModuleListInternal
 	success := vmmMapGetUnloadedModuleU(vmm.vmmHandle, pid, &pUnloadedModuleMap)
@@ -868,7 +891,7 @@ func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[unloadedModuleListInternal, unloadedModuleEntryInternal](pUnloadedModuleMap, int(pUnloadedModuleMap.CMap))
+	entriesInternal := ffi.FAM[unloadedModuleListInternal, unloadedModuleEntryInternal](pUnloadedModuleMap, int(pUnloadedModuleMap.CMap))
 
 	entries := make([]UnloadedModule, pUnloadedModuleMap.CMap)
 	for i := 0; i < int(pUnloadedModuleMap.CMap); i++ {
@@ -876,7 +899,7 @@ func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 			BaseAddress: entriesInternal[i].VaBase,
 			ImageSize:   entriesInternal[i].CbImageSize,
 			IsWow64:     entriesInternal[i].FWoW64 != 0,
-			Name:        cStringToGo(entriesInternal[i].UszText),
+			Name:        ffi.CStringToGo(entriesInternal[i].UszText),
 			UnloadTime:  entriesInternal[i].FtUnload,
 			Checksum:    entriesInternal[i].DwCheckSum,
 			Timestamp:   entriesInternal[i].DwTimeDateStamp,
@@ -892,6 +915,7 @@ func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 }
 
 // GetModuleByName retrieves a single module by its name for a given process.
+// GetModuleByName returns detailed information for a specific module in process pid.
 func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string) (*Module, error) {
 	var pModuleEntry *moduleEntryInternal
 	success := vmmMapGetModuleFromNameU(vmm.vmmHandle, pid, moduleName, &pModuleEntry, 0)
@@ -909,8 +933,8 @@ func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string) (*Module, error) 
 		EntryPoint:   pModuleEntry.VaEntry,
 		ImageSize:    pModuleEntry.CbImageSize,
 		IsWow64:      pModuleEntry.FWoW64,
-		Name:         cStringToGo(pModuleEntry.UszText),
-		FullName:     cStringToGo(pModuleEntry.UszFullName),
+		Name:         ffi.CStringToGo(pModuleEntry.UszText),
+		FullName:     ffi.CStringToGo(pModuleEntry.UszFullName),
 		Type:         pModuleEntry.Tp,
 		FileSize:     pModuleEntry.CbFileSizeRaw,
 		SectionCount: pModuleEntry.CSection,
@@ -974,6 +998,8 @@ type PteList struct {
 }
 
 // GetPteList retrieves the Page Table Entries (PTEs) for a given process.
+// GetPteList returns the Page Table Entries for process pid.
+// If identifyModules is true, vmmdll will attempt to resolve module names for each entry.
 func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 	var pPteMap *pteListInternal
 	success := vmmMapGetPteU(vmm.vmmHandle, pid, identifyModules, &pPteMap)
@@ -989,7 +1015,7 @@ func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[pteListInternal, pteEntryInternal](pPteMap, int(pPteMap.CMap))
+	entriesInternal := ffi.FAM[pteListInternal, pteEntryInternal](pPteMap, int(pPteMap.CMap))
 
 	entries := make([]PteEntry, pPteMap.CMap)
 	for i, entry := range entriesInternal {
@@ -998,7 +1024,7 @@ func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 			PageCount:     entry.CPages,
 			PageFlags:     entry.FPage,
 			IsWow64:       entry.FWoW64 != 0,
-			Name:          cStringToGo(entry.UszText),
+			Name:          ffi.CStringToGo(entry.UszText),
 			SoftwareCount: entry.CSoftware,
 		}
 	}
@@ -1076,6 +1102,7 @@ type NetList struct {
 }
 
 // GetNetList retrieves the network connections for a given process.
+// GetNetList returns all active and recently closed network connections on the system.
 func (vmm *Vmm) GetNetList() (*NetList, error) {
 	var pNetMap *netListInternal
 	success := vmmMapGetNetU(vmm.vmmHandle, &pNetMap)
@@ -1091,7 +1118,7 @@ func (vmm *Vmm) GetNetList() (*NetList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[netListInternal, netEntryInternal](pNetMap, int(pNetMap.CMap))
+	entriesInternal := ffi.FAM[netListInternal, netEntryInternal](pNetMap, int(pNetMap.CMap))
 
 	entries := make([]NetEntry, pNetMap.CMap)
 	for i, entry := range entriesInternal {
@@ -1103,18 +1130,18 @@ func (vmm *Vmm) GetNetList() (*NetList, error) {
 				Valid:   entry.Src.FValid != 0,
 				Port:    entry.Src.Port,
 				Address: entry.Src.PbAddr,
-				Text:    cStringToGo(entry.Src.UszText),
+				Text:    ffi.CStringToGo(entry.Src.UszText),
 			},
 			Dst: NetAddr{
 				Valid:   entry.Dst.FValid != 0,
 				Port:    entry.Dst.Port,
 				Address: entry.Dst.PbAddr,
-				Text:    cStringToGo(entry.Dst.UszText),
+				Text:    ffi.CStringToGo(entry.Dst.UszText),
 			},
 			Object:    entry.VaObj,
 			Timestamp: entry.FtTime,
 			PoolTag:   entry.DwPoolTag,
-			Text:      cStringToGo(entry.UszText),
+			Text:      ffi.CStringToGo(entry.UszText),
 		}
 	}
 
@@ -1202,6 +1229,7 @@ type HeapList struct {
 }
 
 // GetHeapList retrieves the heap entries for a given process.
+// GetHeapList returns all heaps for process pid.
 func (vmm *Vmm) GetHeapList(pid uint32) (*HeapList, error) {
 	var pHeapMap *heapListInternal
 	success := vmmMapGetHeap(vmm.vmmHandle, pid, &pHeapMap)
@@ -1217,7 +1245,7 @@ func (vmm *Vmm) GetHeapList(pid uint32) (*HeapList, error) {
 	// Process heap entries
 	var entries []HeapEntry
 	if pHeapMap.CMap > 0 {
-		entriesInternal := FAM[heapListInternal, heapEntryInternal](pHeapMap, int(pHeapMap.CMap))
+		entriesInternal := ffi.FAM[heapListInternal, heapEntryInternal](pHeapMap, int(pHeapMap.CMap))
 		entries = make([]HeapEntry, pHeapMap.CMap)
 		for i, entry := range entriesInternal {
 			entries[i] = HeapEntry{
@@ -1299,6 +1327,8 @@ type HeapAllocList struct {
 }
 
 // GetHeapAllocList retrieves the heap allocation entries for a given process and heap.
+// GetHeapAllocList returns individual allocations within a heap for process pid.
+// heapNumOrAddress is either a heap index (0, 1, …) or the base address of the heap.
 func (vmm *Vmm) GetHeapAllocList(pid uint32, heapNumOrAddress uint64) (*HeapAllocList, error) {
 	var pHeapAllocMap *heapAllocListInternal
 	success := vmmMapGetHeapAlloc(vmm.vmmHandle, pid, heapNumOrAddress, &pHeapAllocMap)
@@ -1313,7 +1343,7 @@ func (vmm *Vmm) GetHeapAllocList(pid uint32, heapNumOrAddress uint64) (*HeapAllo
 		}, nil
 	}
 
-	entriesInternal := FAM[heapAllocListInternal, heapAllocEntryInternal](pHeapAllocMap, int(pHeapAllocMap.CMap))
+	entriesInternal := ffi.FAM[heapAllocListInternal, heapAllocEntryInternal](pHeapAllocMap, int(pHeapAllocMap.CMap))
 
 	entries := make([]HeapAllocEntry, pHeapAllocMap.CMap)
 	for i, entry := range entriesInternal {

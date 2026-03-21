@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // PoolMapFlag controls which pool allocations are returned.
@@ -65,6 +67,8 @@ type poolListInternal struct {
 }
 
 // GetPoolList retrieves kernel pool allocations.
+// GetPoolList returns kernel pool allocations.
+// Use PoolMapFlagAll to include both paged and non-paged pool entries.
 func (vmm *Vmm) GetPoolList(flag PoolMapFlag) (*PoolList, error) {
 	var pMap *poolListInternal
 	if !vmmMapGetPool(vmm.vmmHandle, &pMap, uint32(flag)) {
@@ -79,7 +83,7 @@ func (vmm *Vmm) GetPoolList(flag PoolMapFlag) (*PoolList, error) {
 		return &PoolList{Version: pMap.DwVersion}, nil
 	}
 
-	entriesInternal := FAM[poolListInternal, poolEntryInternal](pMap, int(pMap.CMap))
+	entriesInternal := ffi.FAM[poolListInternal, poolEntryInternal](pMap, int(pMap.CMap))
 	entries := make([]PoolEntry, pMap.CMap)
 	for i, e := range entriesInternal {
 		var tag [4]byte

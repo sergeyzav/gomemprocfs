@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // ThreadCallstackEntry represents a single entry in the thread callstack.
@@ -73,12 +75,12 @@ func (vmm *Vmm) GetThreadCallstack(pid, tid uint32) (*ThreadCallstack, error) {
 			Version: pCallstackMap.DwVersion,
 			PID:     pCallstackMap.DwPID,
 			TID:     pCallstackMap.DwTID,
-			Text:    cStringToGo(pCallstackMap.UszText),
+			Text:    ffi.CStringToGo(pCallstackMap.UszText),
 			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pCallstackMap.PbMultiText)), pCallstackMap.CbMultiText)),
 		}, nil
 	}
 
-	entriesInternal := FAM[threadCallstackInternal, threadCallstackEntryInternal](pCallstackMap, int(pCallstackMap.CMap))
+	entriesInternal := ffi.FAM[threadCallstackInternal, threadCallstackEntryInternal](pCallstackMap, int(pCallstackMap.CMap))
 
 	entries := make([]ThreadCallstackEntry, pCallstackMap.CMap)
 	for i, entry := range entriesInternal {
@@ -89,8 +91,8 @@ func (vmm *Vmm) GetThreadCallstack(pid, tid uint32) (*ThreadCallstack, error) {
 			RSP:          entry.VaRSP,
 			BaseSP:       entry.VaBaseSP,
 			Displacement: entry.CbDisplacement,
-			ModuleName:   cStringToGo(entry.UszModule),
-			FunctionName: cStringToGo(entry.UszFunction),
+			ModuleName:   ffi.CStringToGo(entry.UszModule),
+			FunctionName: ffi.CStringToGo(entry.UszFunction),
 		}
 	}
 
@@ -98,7 +100,7 @@ func (vmm *Vmm) GetThreadCallstack(pid, tid uint32) (*ThreadCallstack, error) {
 		Version:   pCallstackMap.DwVersion,
 		PID:       pCallstackMap.DwPID,
 		TID:       pCallstackMap.DwTID,
-		Text:      cStringToGo(pCallstackMap.UszText),
+		Text:      ffi.CStringToGo(pCallstackMap.UszText),
 		MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pCallstackMap.PbMultiText)), pCallstackMap.CbMultiText)),
 		Count:     pCallstackMap.CMap,
 		Entries:   entries,

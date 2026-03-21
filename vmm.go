@@ -1,3 +1,10 @@
+// Package memprocfs provides Go bindings for the MemProcFS vmmdll native library,
+// enabling live memory analysis and forensics on Windows targets (physical or VM)
+// without requiring CGo.
+//
+// The primary entry point is NewVmm, which loads the native library and opens a
+// connection to a memory target. All analysis operations are methods on the
+// returned *Vmm handle.
 package memprocfs
 
 import (
@@ -7,8 +14,13 @@ import (
 	"unsafe"
 
 	"github.com/ebitengine/purego"
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
+// Vmm is a handle to an active MemProcFS session.
+// Create one with NewVmm; release resources with Close when done.
+// All analysis methods (memory reads, process info, registry, etc.)
+// are methods on *Vmm.
 type Vmm struct {
 	libHandle uintptr
 	vmmHandle uintptr
@@ -114,6 +126,16 @@ var (
 	vmmVmMemTranslateGPA func(vmmHandle uintptr, hVM uintptr, qwGPA uint64, pPA *uint64, pVA *uint64) bool
 )
 
+// NewVmm loads the vmmdll native library from libPath and initializes a new
+// MemProcFS session with the given options.
+//
+// libPath is the path to the platform-specific vmmdll shared library
+// (e.g. "./libs/vmm.dylib" on macOS, "vmm.dll" on Windows).
+//
+// Use option functions (WithDevice, WithRemote, etc.) to configure the target.
+// If no options are provided, the default target is an FPGA device.
+//
+// The caller must call Close on the returned handle to release resources.
 func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 	var args []string
 
@@ -125,7 +147,7 @@ func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 		args = defaultArgs
 	}
 
-	lib, err := openLibrary(libPath)
+	lib, err := ffi.OpenLibrary(libPath)
 
 	if err != nil {
 		return nil, err
@@ -159,6 +181,8 @@ func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 	return vmm, nil
 }
 
+// InitializePlugins loads all available vmmdll plugins.
+// Called automatically by NewVmm; exposed for manual re-initialization.
 func (vmm *Vmm) InitializePlugins() error {
 	if !vmmInitializePlugins(vmm.vmmHandle) {
 		return errors.New("failed to initialize plugins")
@@ -166,6 +190,8 @@ func (vmm *Vmm) InitializePlugins() error {
 	return nil
 }
 
+// Close shuts down this Vmm session and frees all associated resources.
+// After Close, the Vmm handle must not be used.
 func (vmm *Vmm) Close() error {
 	result := vmmClose(vmm.vmmHandle)
 

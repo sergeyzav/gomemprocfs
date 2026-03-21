@@ -3,6 +3,8 @@ package memprocfs
 import (
 	"fmt"
 	"unsafe"
+
+	"github.com/sergeyzav/memprocfs/internal/ffi"
 )
 
 // PhysMemEntry represents a physical memory range.
@@ -34,6 +36,7 @@ type PhysMemList struct {
 }
 
 // GetPhysMem retrieves the physical memory map of the system.
+// GetPhysMem returns the physical memory map — the set of usable physical memory ranges.
 func (vmm *Vmm) GetPhysMem() (*PhysMemList, error) {
 	var pPhysMemMap *physMemListInternal
 	success := vmmMapGetPhysMem(vmm.vmmHandle, &pPhysMemMap)
@@ -51,7 +54,7 @@ func (vmm *Vmm) GetPhysMem() (*PhysMemList, error) {
 		}, nil
 	}
 
-	entriesInternal := FAM[physMemListInternal, physMemEntryInternal](pPhysMemMap, int(pPhysMemMap.CMap))
+	entriesInternal := ffi.FAM[physMemListInternal, physMemEntryInternal](pPhysMemMap, int(pPhysMemMap.CMap))
 
 	entries := make([]PhysMemEntry, pPhysMemMap.CMap)
 	for i, entry := range entriesInternal {
