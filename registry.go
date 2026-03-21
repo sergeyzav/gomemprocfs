@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/sergeyzav/memprocfs/internal/ffi"
+	"github.com/sergeyzav/gomemprocfs/internal/ffi"
 )
 
 // RegistryHive represents a single registry hive.

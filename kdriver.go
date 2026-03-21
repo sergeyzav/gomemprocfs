@@ -3,7 +3,7 @@ package memprocfs
 import (
 	"unsafe"
 
-	"github.com/sergeyzav/memprocfs/internal/ffi"
+	"github.com/sergeyzav/gomemprocfs/internal/ffi"
 )
 
 // KDriverEntry represents a single kernel driver entry.

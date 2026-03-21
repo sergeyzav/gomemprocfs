@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/sergeyzav/memprocfs/internal/ffi"
+	"github.com/sergeyzav/gomemprocfs/internal/ffi"
 )
 
 const (

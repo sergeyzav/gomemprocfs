@@ -1,4 +1,4 @@
-module github.com/sergeyzav/memprocfs
+module github.com/sergeyzav/gomemprocfs
 
 go 1.25.2
 

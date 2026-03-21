@@ -17,7 +17,7 @@ Download the native libraries from the [MemProcFS releases page](https://github.
 ## Installation
 
 ```sh
-go get github.com/sergeyzav/memprocfs
+go get github.com/sergeyzav/gomemprocfs
 ```
 
 ## Quick Start
@@ -29,7 +29,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/sergeyzav/memprocfs"
+    "github.com/sergeyzav/gomemprocfs"
 )
 
 func main() {
