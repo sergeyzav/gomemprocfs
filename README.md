@@ -1,6 +1,6 @@
 # go-memprocfs
 
-Go bindings for [MemProcFS](https://github.com/ufrisk/MemProcFS) (`vmmdll`), providing live memory analysis and forensics capabilities via a pure Go API without CGo.
+Go bindings for [MemProcFS](https://github.com/ufrisk/MemProcFS), providing live memory analysis and forensics capabilities via a pure Go API without CGo.
 
 ## Requirements
 
