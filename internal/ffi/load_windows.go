@@ -10,5 +10,5 @@ func OpenLibrary(name string) (uintptr, error) {
 	if err := dll.Load(); err != nil {
 		return 0, err
 	}
-	return uintptr(dll.Handle), nil
+	return dll.Handle(), nil
 }
