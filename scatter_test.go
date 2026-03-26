@@ -15,7 +15,7 @@ func TestScatterRead(t *testing.T) {
 	}
 	pid := pids[0]
 
-	mods, err := vmm.GetModuleList(pid)
+	mods, err := vmm.GetModuleList(pid, ModuleFlagNone)
 	if err != nil || mods == nil || len(mods.Modules) == 0 {
 		t.Skipf("no modules for PID %d, skipping", pid)
 	}
@@ -66,7 +66,7 @@ func TestScatterMultipleRanges(t *testing.T) {
 	}
 	pid := pids[0]
 
-	mods, err := vmm.GetModuleList(pid)
+	mods, err := vmm.GetModuleList(pid, ModuleFlagNone)
 	if err != nil || mods == nil || len(mods.Modules) < 2 {
 		t.Skipf("need at least 2 modules for PID %d", pid)
 	}
@@ -115,7 +115,7 @@ func TestScatterClear(t *testing.T) {
 	}
 	pid := pids[0]
 
-	mods, err := vmm.GetModuleList(pid)
+	mods, err := vmm.GetModuleList(pid, ModuleFlagNone)
 	if err != nil || mods == nil || len(mods.Modules) == 0 {
 		t.Skipf("no modules for PID %d", pid)
 	}

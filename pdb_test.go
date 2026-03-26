@@ -74,7 +74,7 @@ func TestPdbLoad(t *testing.T) {
 	defer vmm.Close()
 
 	// Get the kernel module base (PID 4 = System, first module is ntoskrnl).
-	mods, err := vmm.GetModuleList(4)
+	mods, err := vmm.GetModuleList(4, ModuleFlagNone)
 	if err != nil || mods == nil || len(mods.Modules) == 0 {
 		t.Skip("could not get System (PID 4) module list")
 	}

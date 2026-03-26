@@ -136,7 +136,7 @@ func TestGetModuleList(t *testing.T) {
 		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
 	}
 
-	moduleList, err := vmm.GetModuleList(pid)
+	moduleList, err := vmm.GetModuleList(pid, ModuleFlagNone)
 	if err != nil {
 		t.Fatalf("GetModuleList failed: %v", err)
 	}
@@ -343,7 +343,7 @@ func TestGetModuleByName(t *testing.T) {
 		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
 	}
 
-	module, err := vmm.GetModuleByName(pid, "kernel32.dll")
+	module, err := vmm.GetModuleByName(pid, "kernel32.dll", ModuleFlagNone)
 	if err != nil {
 		t.Fatalf("GetModuleByName failed: %v", err)
 	}

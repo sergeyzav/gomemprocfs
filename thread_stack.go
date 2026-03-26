@@ -59,7 +59,6 @@ type ThreadCallstack struct {
 // GetThreadCallstack retrieves the callstack for a specific thread.
 func (vmm *Vmm) GetThreadCallstack(pid, tid uint32) (*ThreadCallstack, error) {
 	var pCallstackMap *threadCallstackInternal
-	// flags is usually 0
 	success := vmmMapGetThreadCallstackU(vmm.vmmHandle, pid, tid, 0, &pCallstackMap)
 	if !success {
 		return nil, nil // Or error? Let's return nil for now as per other functions.

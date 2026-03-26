@@ -20,7 +20,7 @@ func TestGetIATThunkInfo(t *testing.T) {
 		if p.PID == 0 {
 			continue
 		}
-		mods, err := vmm.GetModuleList(p.PID)
+		mods, err := vmm.GetModuleList(p.PID, ModuleFlagNone)
 		if err != nil || mods == nil || len(mods.Modules) == 0 {
 			continue
 		}
