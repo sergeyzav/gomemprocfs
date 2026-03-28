@@ -1,0 +1,86 @@
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Download memory dump
+        run: |
+          mkdir -p dumps
+          gcloud storage cp ${{ vars.GCS_MEMDUMP_PATH }} dumps/memdump.raw.zst
+          zstd -d dumps/memdump.raw.zst -o dumps/memdump.raw
+          rm dumps/memdump.raw.zst
+
+      - name: Get MemProcFS latest release tag
+        id: memprocfs-release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=$(curl -sf https://api.github.com/repos/ufrisk/MemProcFS/releases/latest | jq -r '.tag_name')
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Cache MemProcFS
+        id: cache-vmm
+        uses: actions/cache@v4
+        with:
+          path: memprocfs
+          key: memprocfs-linux-x64-${{ steps.memprocfs-release.outputs.tag }}
+
+      - name: Download MemProcFS
+        if: steps.cache-vmm.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${{ steps.memprocfs-release.outputs.tag }}"
+          mkdir -p memprocfs
+          # Download the Linux x64 archive
+          DOWNLOAD_URL=$(curl -sf https://api.github.com/repos/ufrisk/MemProcFS/releases/latest \
+            | jq -r '.assets[] | select(.name | test("linux_x64")) | .browser_download_url')
+          curl -sL "$DOWNLOAD_URL" -o memprocfs/release.tar.gz
+          cd memprocfs && tar -xzf release.tar.gz && rm -f release.tar.gz
+
+      - name: Locate vmm.so
+        id: vmm-path
+        run: |
+          VMM_SO=$(find memprocfs -name "vmm.so" -o -name "libvmm.so" | head -1)
+          if [ -z "$VMM_SO" ]; then
+            echo "::error::Could not find vmm.so in MemProcFS release"
+            echo "Contents of memprocfs directory:"
+            find memprocfs -type f -name "*.so" -o -name "*.so.*" | head -20
+            exit 1
+          fi
+          echo "path=$(realpath "$VMM_SO")" >> "$GITHUB_OUTPUT"
+
+      - name: Run tests
+        env:
+          VMM_DLL_PATH: ${{ steps.vmm-path.outputs.path }}
+          MEMDUMP_PATH: ${{ github.workspace }}/dumps/memdump.raw
+          LD_LIBRARY_PATH: ${{ github.workspace }}/memprocfs
+        run: go test -v -count=1 ./...
