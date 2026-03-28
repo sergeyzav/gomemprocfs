@@ -13,6 +13,8 @@ jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
+    # Skip fork PRs — they don't have access to secrets/OIDC
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
 
     steps:
       - uses: actions/checkout@v4
@@ -31,19 +33,25 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      # Download and decompress memory dump from GCS
       - name: Download memory dump
+        env:
+          GCS_MEMDUMP_PATH: ${{ vars.GCS_MEMDUMP_PATH }}
         run: |
           mkdir -p dumps
-          gcloud storage cp ${{ vars.GCS_MEMDUMP_PATH }} dumps/memdump.raw.zst
+          gcloud storage cp "$GCS_MEMDUMP_PATH" dumps/memdump.raw.zst
           zstd -d dumps/memdump.raw.zst -o dumps/memdump.raw
           rm dumps/memdump.raw.zst
 
+      # Resolve latest MemProcFS release and download Linux x64 binaries
       - name: Get MemProcFS latest release tag
         id: memprocfs-release
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           TAG=$(curl -sf https://api.github.com/repos/ufrisk/MemProcFS/releases/latest | jq -r '.tag_name')
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+ ]]; then
+            echo "::error::Unexpected release tag format: $TAG"
+            exit 1
+          fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Cache MemProcFS
@@ -55,15 +63,15 @@ jobs:
 
       - name: Download MemProcFS
         if: steps.cache-vmm.outputs.cache-hit != 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ steps.memprocfs-release.outputs.tag }}"
           mkdir -p memprocfs
-          # Download the Linux x64 archive
           DOWNLOAD_URL=$(curl -sf https://api.github.com/repos/ufrisk/MemProcFS/releases/latest \
             | jq -r '.assets[] | select(.name | test("linux_x64")) | .browser_download_url')
-          curl -sL "$DOWNLOAD_URL" -o memprocfs/release.tar.gz
+          if [ -z "$DOWNLOAD_URL" ]; then
+            echo "::error::Could not find linux_x64 asset in latest MemProcFS release"
+            exit 1
+          fi
+          curl -sfL "$DOWNLOAD_URL" -o memprocfs/release.tar.gz
           cd memprocfs && tar -xzf release.tar.gz && rm -f release.tar.gz
 
       - name: Locate vmm.so
@@ -72,7 +80,6 @@ jobs:
           VMM_SO=$(find memprocfs -name "vmm.so" -o -name "libvmm.so" | head -1)
           if [ -z "$VMM_SO" ]; then
             echo "::error::Could not find vmm.so in MemProcFS release"
-            echo "Contents of memprocfs directory:"
             find memprocfs -type f -name "*.so" -o -name "*.so.*" | head -20
             exit 1
           fi
@@ -83,4 +90,4 @@ jobs:
           VMM_DLL_PATH: ${{ steps.vmm-path.outputs.path }}
           MEMDUMP_PATH: ${{ github.workspace }}/dumps/memdump.raw
           LD_LIBRARY_PATH: ${{ github.workspace }}/memprocfs
-        run: go test -v -count=1 ./...
+        run: go test -count=1 ./...
