@@ -69,7 +69,7 @@ type poolListInternal struct {
 // Use PoolMapFlagAll to return all allocations or PoolMapFlagBig to return only big-pool allocations.
 func (vmm *Vmm) GetPoolList(flag PoolMapFlag) (*PoolList, error) {
 	var pMap *poolListInternal
-	if !vmmMapGetPool(vmm.vmmHandle, &pMap, uint32(flag)) {
+	if !vmmMapGetPool(vmm.vmmHandle, &pMap, flag) {
 		return nil, nil
 	}
 	if pMap == nil {

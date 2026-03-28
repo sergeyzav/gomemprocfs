@@ -44,3 +44,16 @@ const (
 	// MemFlagScatterForcePageRead forces page-sized reads in scatter operations.
 	MemFlagScatterForcePageRead MemFlag = 0x4000
 )
+
+// ModuleFlag controls module enumeration behavior.
+type ModuleFlag uint32
+
+const (
+	// ModuleFlagNone retrieves basic module information.
+	ModuleFlagNone ModuleFlag = 0
+	// ModuleFlagDebugInfo includes debug info (Age, GUID, PDB filename).
+	ModuleFlagDebugInfo ModuleFlag = 1
+	// ModuleFlagVersionInfo includes version info (company, description, version, etc.).
+	ModuleFlagVersionInfo ModuleFlag = 2
+)
+

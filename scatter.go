@@ -15,7 +15,7 @@ type ScatterHandle struct {
 // Use pid = 0xFFFFFFFF to target physical memory.
 // The caller must call Close() to release resources.
 func (vmm *Vmm) ScatterInitialize(pid uint32, flags MemFlag) (*ScatterHandle, error) {
-	h := vmmScatterInitialize(vmm.vmmHandle, pid, uint32(flags))
+	h := vmmScatterInitialize(vmm.vmmHandle, pid, flags)
 	if h == 0 {
 		return nil, fmt.Errorf("failed to initialize scatter handle for PID %d", pid)
 	}
@@ -76,7 +76,7 @@ func (h *ScatterHandle) Read(va uint64, cb uint32) ([]byte, error) {
 // Clear resets the handle for reuse in a subsequent scatter operation.
 // Optionally change the target PID; pass 0 to keep the current PID.
 func (h *ScatterHandle) Clear(pid uint32, flags MemFlag) error {
-	if !vmmScatterClear(h.handle, pid, uint32(flags)) {
+	if !vmmScatterClear(h.handle, pid, flags) {
 		return fmt.Errorf("scatter clear failed")
 	}
 	return nil

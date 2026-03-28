@@ -116,10 +116,12 @@ const (
 	PfnExtFile           PfnTypeExtended = 7
 )
 
-// PFN flags for GetPfnList.
+// PfnFlag controls the level of detail returned by GetPfnList.
+type PfnFlag uint32
+
 const (
-	PfnFlagNormal   uint32 = 0
-	PfnFlagExtended uint32 = 1
+	PfnFlagNormal   PfnFlag = 0
+	PfnFlagExtended PfnFlag = 1
 )
 
 // pfnEntryInternal mirrors VMMDLL_MAP_PFNENTRY (96 bytes on x64).
@@ -166,7 +168,7 @@ type PfnList struct {
 
 // GetPfnList retrieves Page Frame Number information for the supplied PFNs.
 // flags: PfnFlagNormal (0) for basic info, PfnFlagExtended (1) for full extended info.
-func (vmm *Vmm) GetPfnList(pfns []uint32, flags uint32) (*PfnList, error) {
+func (vmm *Vmm) GetPfnList(pfns []uint32, flags PfnFlag) (*PfnList, error) {
 	if len(pfns) == 0 {
 		return &PfnList{}, nil
 	}

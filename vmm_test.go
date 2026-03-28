@@ -23,7 +23,6 @@ func setupVmm(t *testing.T) *Vmm {
 		WithDevice(memdumpPath),
 		WithWaitInitialize(),
 		WithVerbose(),
-		WithPrintf(),
 	)
 	if err != nil {
 		t.Fatalf("Failed to initialize Vmm: %v", err)

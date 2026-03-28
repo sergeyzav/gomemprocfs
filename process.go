@@ -90,6 +90,28 @@ const (
 	ModuleTypeData    ModuleType = 2
 )
 
+// ModuleDebugInfo contains PDB debug information for a module.
+// Populated only when ModuleFlagDebugInfo is passed.
+type ModuleDebugInfo struct {
+	Age         uint32
+	Guid        [16]byte
+	GuidString  string
+	PdbFilename string
+}
+
+// ModuleVersionInfo contains version resource information for a module.
+// Populated only when ModuleFlagVersionInfo is passed.
+type ModuleVersionInfo struct {
+	CompanyName      string
+	FileDescription  string
+	FileVersion      string
+	InternalName     string
+	LegalCopyright   string
+	OriginalFilename string
+	ProductName      string
+	ProductVersion   string
+}
+
 // Module contains information about a single loaded module.
 type Module struct {
 	BaseAddress  uint64
@@ -103,6 +125,8 @@ type Module struct {
 	SectionCount uint32
 	ExportCount  uint32
 	ImportCount  uint32
+	DebugInfo    *ModuleDebugInfo
+	VersionInfo  *ModuleVersionInfo
 }
 
 // ModuleList contains a list of loaded modules for a process.
@@ -131,6 +155,27 @@ type moduleEntryInternal struct {
 	Reserved       [3]uint64
 	PExDebugInfo   uintptr
 	PExVersionInfo uintptr
+}
+
+// moduleDebugInfoInternal mirrors VMMDLL_MAP_MODULEENTRY_DEBUGINFO.
+type moduleDebugInfoInternal struct {
+	DwAge          uint32
+	_              uint32 // _Reserved
+	Guid           [16]byte
+	UszGuid        uintptr
+	UszPdbFilename uintptr
+}
+
+// moduleVersionInfoInternal mirrors VMMDLL_MAP_MODULEENTRY_VERSIONINFO.
+type moduleVersionInfoInternal struct {
+	UszCompanyName      uintptr
+	UszFileDescription  uintptr
+	UszFileVersion      uintptr
+	UszInternalName     uintptr
+	UszLegalCopyright   uintptr
+	UszOriginalFilename uintptr
+	UszProductName      uintptr
+	UszProductVersion   uintptr
 }
 
 // moduleListInternal mirrors the C struct VMMDLL_MAP_MODULE
@@ -451,10 +496,50 @@ func (vmm *Vmm) GetModuleBase(pid uint32, moduleName string) (uint64, error) {
 	return base, nil
 }
 
+// convertModuleEntry converts an internal module entry to the public Module type.
+func convertModuleEntry(entry *moduleEntryInternal) Module {
+	m := Module{
+		BaseAddress:  entry.VaBase,
+		EntryPoint:   entry.VaEntry,
+		ImageSize:    entry.CbImageSize,
+		IsWow64:      entry.FWoW64,
+		Name:         ffi.CStringToGo(entry.UszText),
+		FullName:     ffi.CStringToGo(entry.UszFullName),
+		Type:         entry.Tp,
+		FileSize:     entry.CbFileSizeRaw,
+		SectionCount: entry.CSection,
+		ExportCount:  entry.CEAT,
+		ImportCount:  entry.CIAT,
+	}
+	if entry.PExDebugInfo != 0 {
+		di := (*moduleDebugInfoInternal)(unsafe.Pointer(entry.PExDebugInfo))
+		m.DebugInfo = &ModuleDebugInfo{
+			Age:         di.DwAge,
+			Guid:        di.Guid,
+			GuidString:  ffi.CStringToGo(di.UszGuid),
+			PdbFilename: ffi.CStringToGo(di.UszPdbFilename),
+		}
+	}
+	if entry.PExVersionInfo != 0 {
+		vi := (*moduleVersionInfoInternal)(unsafe.Pointer(entry.PExVersionInfo))
+		m.VersionInfo = &ModuleVersionInfo{
+			CompanyName:      ffi.CStringToGo(vi.UszCompanyName),
+			FileDescription:  ffi.CStringToGo(vi.UszFileDescription),
+			FileVersion:      ffi.CStringToGo(vi.UszFileVersion),
+			InternalName:     ffi.CStringToGo(vi.UszInternalName),
+			LegalCopyright:   ffi.CStringToGo(vi.UszLegalCopyright),
+			OriginalFilename: ffi.CStringToGo(vi.UszOriginalFilename),
+			ProductName:      ffi.CStringToGo(vi.UszProductName),
+			ProductVersion:   ffi.CStringToGo(vi.UszProductVersion),
+		}
+	}
+	return m
+}
+
 // GetModuleList returns all loaded modules (DLLs and EXEs) for process pid.
-func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
+func (vmm *Vmm) GetModuleList(pid uint32, flags ModuleFlag) (*ModuleList, error) {
 	var moduleListPtr *moduleListInternal
-	success := vmmMapGetModuleU(vmm.vmmHandle, pid, &moduleListPtr, 0)
+	success := vmmMapGetModuleU(vmm.vmmHandle, pid, &moduleListPtr, flags)
 	if !success {
 		return nil, fmt.Errorf("failed to get module list for PID %d", pid)
 	}
@@ -471,20 +556,8 @@ func (vmm *Vmm) GetModuleList(pid uint32) (*ModuleList, error) {
 		Modules:   make([]Module, len(internalEntries)),
 	}
 
-	for i, entry := range internalEntries {
-		result.Modules[i] = Module{
-			BaseAddress:  entry.VaBase,
-			EntryPoint:   entry.VaEntry,
-			ImageSize:    entry.CbImageSize,
-			IsWow64:      entry.FWoW64,
-			Name:         ffi.CStringToGo(entry.UszText),
-			FullName:     ffi.CStringToGo(entry.UszFullName),
-			Type:         entry.Tp,
-			FileSize:     entry.CbFileSizeRaw,
-			SectionCount: entry.CSection,
-			ExportCount:  entry.CEAT,
-			ImportCount:  entry.CIAT,
-		}
+	for i := range internalEntries {
+		result.Modules[i] = convertModuleEntry(&internalEntries[i])
 	}
 
 	return result, nil
@@ -914,9 +987,9 @@ func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 
 // GetModuleByName retrieves a single module by its name for a given process.
 // GetModuleByName returns detailed information for a specific module in process pid.
-func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string) (*Module, error) {
+func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string, flags ModuleFlag) (*Module, error) {
 	var pModuleEntry *moduleEntryInternal
-	success := vmmMapGetModuleFromNameU(vmm.vmmHandle, pid, moduleName, &pModuleEntry, 0)
+	success := vmmMapGetModuleFromNameU(vmm.vmmHandle, pid, moduleName, &pModuleEntry, flags)
 	if !success {
 		return nil, fmt.Errorf("VMMDLL_Map_GetModuleFromNameU failed for module '%s' in PID %d", moduleName, pid)
 	}
@@ -926,19 +999,8 @@ func (vmm *Vmm) GetModuleByName(pid uint32, moduleName string) (*Module, error) 
 		return nil, fmt.Errorf("module '%s' not found in PID %d", moduleName, pid)
 	}
 
-	return &Module{
-		BaseAddress:  pModuleEntry.VaBase,
-		EntryPoint:   pModuleEntry.VaEntry,
-		ImageSize:    pModuleEntry.CbImageSize,
-		IsWow64:      pModuleEntry.FWoW64,
-		Name:         ffi.CStringToGo(pModuleEntry.UszText),
-		FullName:     ffi.CStringToGo(pModuleEntry.UszFullName),
-		Type:         pModuleEntry.Tp,
-		FileSize:     pModuleEntry.CbFileSizeRaw,
-		SectionCount: pModuleEntry.CSection,
-		ExportCount:  pModuleEntry.CEAT,
-		ImportCount:  pModuleEntry.CIAT,
-	}, nil
+	m := convertModuleEntry(pModuleEntry)
+	return &m, nil
 }
 
 // PteType corresponds to the VMMDLL_PTE_TP enum.
