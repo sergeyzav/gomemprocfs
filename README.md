@@ -1,5 +1,8 @@
 # go-memprocfs
 
+[![Build](https://github.com/sergeyzav/gomemprocfs/actions/workflows/build.yml/badge.svg)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/build.yml)
+[![Test](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml/badge.svg)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml)
+
 Go bindings for [MemProcFS](https://github.com/ufrisk/MemProcFS), providing live memory analysis and forensics capabilities via a pure Go API without CGo.
 
 ## Compatibility
