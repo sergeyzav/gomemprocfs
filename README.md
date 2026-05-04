@@ -2,6 +2,12 @@
 
 Go bindings for [MemProcFS](https://github.com/ufrisk/MemProcFS), providing live memory analysis and forensics capabilities via a pure Go API without CGo.
 
+## Compatibility
+
+| go-memprocfs | MemProcFS (Native DLL/SO) |
+|--------------|---------------------------|
+| v0.1.x       | v5.x                      |
+
 ## Requirements
 
 This library wraps the native `vmmdll` shared library using [purego](https://github.com/ebitengine/purego). The native libraries must be present on the system:

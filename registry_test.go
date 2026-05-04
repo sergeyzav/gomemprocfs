@@ -23,7 +23,8 @@ func TestGetRegistryHives(t *testing.T) {
 	// Check for a well-known hive
 	foundSystem := false
 	for _, hive := range hives {
-		if strings.HasSuffix(strings.ToUpper(hive.Path), "\\SYSTEM") {
+		t.Logf("Hive: name=%q short=%q path=%q base=0x%X", hive.Name, hive.ShortName, hive.Path, hive.BaseAddress)
+		if strings.HasSuffix(strings.ToUpper(hive.Path), "\\SYSTEM") || strings.ToUpper(hive.ShortName) == "SYSTEM" || strings.HasSuffix(strings.ToUpper(hive.ShortName), "\\SYSTEM") {
 			foundSystem = true
 			t.Logf("Found SYSTEM hive: %s", hive.Path)
 			break
