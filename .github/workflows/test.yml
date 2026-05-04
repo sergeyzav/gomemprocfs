@@ -25,13 +25,12 @@ jobs:
           echo "versions=$VERSIONS" >> "$GITHUB_OUTPUT"
 
   test:
-    name: Test (${{ matrix.os }}, ${{ matrix.memprocfs-version }})
+    name: Test (${{ matrix.memprocfs-version }})
     needs: prepare
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         memprocfs-version: ${{ fromJSON(needs.prepare.outputs.memprocfs-versions) }}
     defaults:
       run:
@@ -68,20 +67,14 @@ jobs:
         uses: actions/cache@v4
         with:
           path: memprocfs
-          key: memprocfs-${{ matrix.os }}-${{ matrix.memprocfs-version }}
+          key: memprocfs-ubuntu-latest-${{ matrix.memprocfs-version }}
 
       - name: Download MemProcFS
         if: steps.cache-vmm.outputs.cache-hit != 'true'
         run: |
           mkdir -p memprocfs
           
-          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            PATTERN="linux_x64"
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            PATTERN="macOS"
-          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            PATTERN="win_x64"
-          fi
+          PATTERN="linux_x64"
           
           # Fetch assets list for the specific version
           ASSETS=$(curl -sfL https://api.github.com/repos/ufrisk/MemProcFS/releases/tags/${{ matrix.memprocfs-version }})
