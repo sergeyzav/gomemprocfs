@@ -10,10 +10,32 @@ permissions:
   id-token: write
 
 jobs:
-  test:
-    name: Test
+  prepare:
+    name: Prepare Matrix
     runs-on: ubuntu-latest
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    outputs:
+      memprocfs-versions: ${{ steps.get-versions.outputs.versions }}
+    steps:
+      - name: Fetch Latest MemProcFS Versions
+        id: get-versions
+        run: |
+          # Fetch the last 3 non-draft, non-prerelease tags
+          VERSIONS=$(curl -sfL https://api.github.com/repos/ufrisk/MemProcFS/releases | jq -c '[.[] | select(.prerelease==false and .draft==false) | .tag_name] | .[0:3]')
+          echo "versions=$VERSIONS" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: Test (${{ matrix.os }}, ${{ matrix.memprocfs-version }})
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        memprocfs-version: ${{ fromJSON(needs.prepare.outputs.memprocfs-versions) }}
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - uses: actions/checkout@v4
@@ -41,50 +63,74 @@ jobs:
           zstd -d dumps/memdump.raw.zst -o dumps/memdump.raw
           rm dumps/memdump.raw.zst
 
-      - name: Get MemProcFS latest release tag
-        id: memprocfs-release
-        run: |
-          TAG=$(curl -sf https://api.github.com/repos/ufrisk/MemProcFS/releases/latest | jq -r '.tag_name')
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+ ]]; then
-            echo "::error::Unexpected release tag format: $TAG"
-            exit 1
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
       - name: Cache MemProcFS
         id: cache-vmm
         uses: actions/cache@v4
         with:
           path: memprocfs
-          key: memprocfs-linux-x64-${{ steps.memprocfs-release.outputs.tag }}
+          key: memprocfs-${{ matrix.os }}-${{ matrix.memprocfs-version }}
 
       - name: Download MemProcFS
         if: steps.cache-vmm.outputs.cache-hit != 'true'
         run: |
           mkdir -p memprocfs
-          DOWNLOAD_URL=$(curl -sf https://api.github.com/repos/ufrisk/MemProcFS/releases/latest \
-            | jq -r '.assets[] | select(.name | test("linux_x64")) | .browser_download_url')
+          
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            PATTERN="linux_x64"
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            PATTERN="macOS"
+          elif [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            PATTERN="win_x64"
+          fi
+          
+          # Fetch assets list for the specific version
+          ASSETS=$(curl -sfL https://api.github.com/repos/ufrisk/MemProcFS/releases/tags/${{ matrix.memprocfs-version }})
+          
+          # Find the exact asset URL matching the pattern, excluding "latest" zip for Windows
+          DOWNLOAD_URL=$(echo "$ASSETS" | jq -r ".assets[] | select(.name | test(\"$PATTERN\")) | select(.name | test(\"latest\") | not) | .browser_download_url" | head -1)
+          
           if [ -z "$DOWNLOAD_URL" ]; then
-            echo "::error::Could not find linux_x64 asset in latest MemProcFS release"
+            echo "::error::Could not find asset for pattern $PATTERN in release ${{ matrix.memprocfs-version }}"
             exit 1
           fi
-          curl -sfL "$DOWNLOAD_URL" -o memprocfs/release.tar.gz
-          cd memprocfs && tar -xzf release.tar.gz && rm -f release.tar.gz
+          
+          curl -sfL "$DOWNLOAD_URL" -o memprocfs/release.archive
+          
+          cd memprocfs
+          if [[ "$DOWNLOAD_URL" == *.tar.gz ]]; then
+            tar -xzf release.archive
+          elif [[ "$DOWNLOAD_URL" == *.zip ]]; then
+            unzip -q release.archive
+          fi
+          rm -f release.archive
 
-      - name: Locate vmm.so
+      - name: Locate Native Library
         id: vmm-path
         run: |
-          VMM_SO=$(find memprocfs -name "vmm.so" -o -name "libvmm.so" | head -1)
-          if [ -z "$VMM_SO" ]; then
-            echo "::error::Could not find vmm.so in MemProcFS release"
-            find memprocfs -type f -name "*.so" -o -name "*.so.*" | head -20
+          VMM_LIB=$(find memprocfs -name "vmm.dll" -o -name "vmm.so" -o -name "libvmm.so" -o -name "vmm.dylib" | head -1)
+          if [ -z "$VMM_LIB" ]; then
+            echo "::error::Could not find native library in MemProcFS release"
+            find memprocfs -type f | head -20
             exit 1
           fi
-          echo "path=$(realpath "$VMM_SO")" >> "$GITHUB_OUTPUT"
+          
+          # Strip leading ./ if find added it
+          VMM_LIB=${VMM_LIB#./}
+          DIR_NAME=$(dirname "$VMM_LIB")
+          
+          ABS_PATH="${{ github.workspace }}/$VMM_LIB"
+          ABS_DIR="${{ github.workspace }}/$DIR_NAME"
+          
+          # Add directory to PATH so Windows can find leechcore.dll dependency
+          echo "$ABS_DIR" >> "$GITHUB_PATH"
+          
+          echo "path=$ABS_PATH" >> "$GITHUB_OUTPUT"
+          echo "dir=$ABS_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
         env:
           VMM_DLL_PATH: ${{ steps.vmm-path.outputs.path }}
           MEMDUMP_PATH: ${{ github.workspace }}/dumps/memdump.raw
-          LD_LIBRARY_PATH: ${{ github.workspace }}/memprocfs
+          LD_LIBRARY_PATH: ${{ steps.vmm-path.outputs.dir }}
+          DYLD_LIBRARY_PATH: ${{ steps.vmm-path.outputs.dir }}
         run: go test -count=1 ./...
