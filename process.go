@@ -395,7 +395,9 @@ func (pi *ProcessInfo) NameLong() string {
 // GetPidList returns the PIDs of all currently running processes.
 func (vmm *Vmm) GetPidList() ([]uint32, error) {
 	var count uint64
-	vmmPidList(vmm.vmmHandle, nil, &count)
+	if !vmmPidList(vmm.vmmHandle, nil, &count) {
+		return nil, errors.New("failed to get PID count")
+	}
 	if count == 0 {
 		return nil, nil
 	}
@@ -827,7 +829,7 @@ type IatList struct {
 
 // iatThunkInternal mirrors the nested Thunk struct in VMMDLL_MAP_IATENTRY.
 type iatThunkInternal struct {
-	F32                   bool
+	F32                   uint32 // BOOL
 	Hint                  uint16
 	_                     uint16 // Reserved1
 	RvaFirstThunk         uint32
@@ -859,15 +861,14 @@ type iatMapInternal struct {
 // GetIatList retrieves the Import Address Table (IAT) for a given module in a process.
 // GetIatList returns the Import Address Table for moduleName in process pid.
 func (vmm *Vmm) GetIatList(pid uint32, moduleName string) (*IatList, error) {
-
 	var pIatMap *iatMapInternal
 	success := vmmMapGetIATU(vmm.vmmHandle, pid, moduleName, &pIatMap)
-	if !success {
+	if !success || pIatMap == nil {
 		return nil, fmt.Errorf("VMMDLL_Map_GetIATU failed for module '%s' in PID %d", moduleName, pid)
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pIatMap)))
 
-	if pIatMap == nil || pIatMap.CMap == 0 {
+	if pIatMap.CMap == 0 {
 		return &IatList{
 			Version:           pIatMap.DwVersion,
 			ModuleBaseAddress: pIatMap.VaModuleBase,
@@ -884,7 +885,7 @@ func (vmm *Vmm) GetIatList(pid uint32, moduleName string) (*IatList, error) {
 			FunctionName:    ffi.CStringToGo(entriesInternal[i].UszFunction),
 			ModuleName:      ffi.CStringToGo(entriesInternal[i].UszModule),
 			Thunk: IatThunk{
-				Is32Bit:               entriesInternal[i].Thunk.F32,
+				Is32Bit:               entriesInternal[i].Thunk.F32 != 0,
 				Hint:                  entriesInternal[i].Thunk.Hint,
 				RvaFirstThunk:         entriesInternal[i].Thunk.RvaFirstThunk,
 				RvaOriginalFirstThunk: entriesInternal[i].Thunk.RvaOriginalFirstThunk,
@@ -928,10 +929,10 @@ type unloadedModuleEntryInternal struct {
 	CbImageSize     uint32
 	FWoW64          uint32 // BOOL
 	UszText         uintptr
-	_FutureUse1     uint32
+	_               uint32 // FutureUse1
 	DwCheckSum      uint32
 	DwTimeDateStamp uint32
-	_Reserved1      uint32
+	_               uint32 // Reserved1
 	FtUnload        uint64
 }
 
@@ -950,12 +951,12 @@ type unloadedModuleListInternal struct {
 func (vmm *Vmm) GetUnloadedModuleList(pid uint32) (*UnloadedModuleList, error) {
 	var pUnloadedModuleMap *unloadedModuleListInternal
 	success := vmmMapGetUnloadedModuleU(vmm.vmmHandle, pid, &pUnloadedModuleMap)
-	if !success {
+	if !success || pUnloadedModuleMap == nil {
 		return nil, fmt.Errorf("VMMDLL_Map_GetUnloadedModuleU failed for PID %d", pid)
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pUnloadedModuleMap)))
 
-	if pUnloadedModuleMap == nil || pUnloadedModuleMap.CMap == 0 {
+	if pUnloadedModuleMap.CMap == 0 {
 		return &UnloadedModuleList{
 			Version:   pUnloadedModuleMap.Version,
 			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pUnloadedModuleMap.PbMultiText)), pUnloadedModuleMap.CbMultiText)),
@@ -1019,14 +1020,14 @@ const (
 
 // pteEntryInternal mirrors the C struct VMMDLL_MAP_PTEENTRY
 type pteEntryInternal struct {
-	VaBase      uint64
-	CPages      uint64
-	FPage       uint64 // Bitfield for page flags
-	FWoW64      uint32 // BOOL
-	_FutureUse1 uint32
-	UszText     uintptr
-	_Reserved1  uint32
-	CSoftware   uint32
+	VaBase    uint64
+	CPages    uint64
+	FPage     uint64 // Bitfield for page flags
+	FWoW64    uint32 // BOOL
+	_         uint32 // FutureUse1
+	UszText   uintptr
+	_         uint32 // Reserved1
+	CSoftware uint32
 }
 
 // PteEntry represents a single Page Table Entry.
@@ -1063,12 +1064,12 @@ type PteList struct {
 func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 	var pPteMap *pteListInternal
 	success := vmmMapGetPteU(vmm.vmmHandle, pid, identifyModules, &pPteMap)
-	if !success {
+	if !success || pPteMap == nil {
 		return nil, fmt.Errorf("VMMDLL_Map_GetPteU failed for PID %d", pid)
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pPteMap)))
 
-	if pPteMap == nil || pPteMap.CMap == 0 {
+	if pPteMap.CMap == 0 {
 		return &PteList{
 			Version:   pPteMap.Version,
 			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pPteMap.PbMultiText)), pPteMap.CbMultiText)),
@@ -1099,27 +1100,27 @@ func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 
 // netAddrInternal mirrors the nested address struct in VMMDLL_MAP_NETENTRY
 type netAddrInternal struct {
-	FValid    uint32 // BOOL
-	_Reserved uint16
-	Port      uint16
-	PbAddr    [16]byte
-	UszText   uintptr
+	FValid  uint32 // BOOL
+	_       uint16 // Reserved
+	Port    uint16
+	PbAddr  [16]byte
+	UszText uintptr
 }
 
 // netEntryInternal mirrors the C struct VMMDLL_MAP_NETENTRY
 type netEntryInternal struct {
-	DwPID       uint32
-	DwState     uint32
-	_           [3]uint16 // _FutureUse3
-	AF          uint16    // address family (IPv4/IPv6)
-	Src         netAddrInternal
-	Dst         netAddrInternal
-	VaObj       uint64
-	FtTime      uint64
-	DwPoolTag   uint32
-	_FutureUse4 uint32
-	UszText     uintptr
-	_           [4]uint32 // _FutureUse2
+	DwPID     uint32
+	DwState   uint32
+	_         [3]uint16 // _FutureUse3
+	AF        uint16    // address family (IPv4/IPv6)
+	Src       netAddrInternal
+	Dst       netAddrInternal
+	VaObj     uint64
+	FtTime    uint64
+	DwPoolTag uint32
+	_         uint32 // FutureUse4
+	UszText   uintptr
+	_         [4]uint32 // _FutureUse2
 }
 
 // NetAddr represents a single network address.
@@ -1166,12 +1167,12 @@ type NetList struct {
 func (vmm *Vmm) GetNetList() (*NetList, error) {
 	var pNetMap *netListInternal
 	success := vmmMapGetNetU(vmm.vmmHandle, &pNetMap)
-	if !success {
+	if !success || pNetMap == nil {
 		return nil, fmt.Errorf("VMMDLL_Map_GetNetU failed")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pNetMap)))
 
-	if pNetMap == nil || pNetMap.CMap == 0 {
+	if pNetMap.CMap == 0 {
 		return &NetList{
 			Version:   pNetMap.Version,
 			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pNetMap.PbMultiText)), pNetMap.CbMultiText)),
@@ -1392,12 +1393,12 @@ type HeapAllocList struct {
 func (vmm *Vmm) GetHeapAllocList(pid uint32, heapNumOrAddress uint64) (*HeapAllocList, error) {
 	var pHeapAllocMap *heapAllocListInternal
 	success := vmmMapGetHeapAlloc(vmm.vmmHandle, pid, heapNumOrAddress, &pHeapAllocMap)
-	if !success {
+	if !success || pHeapAllocMap == nil {
 		return nil, fmt.Errorf("VMMDLL_Map_GetHeapAlloc failed for PID %d, heap 0x%x", pid, heapNumOrAddress)
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pHeapAllocMap)))
 
-	if pHeapAllocMap == nil || pHeapAllocMap.CMap == 0 {
+	if pHeapAllocMap.CMap == 0 {
 		return &HeapAllocList{
 			Version: pHeapAllocMap.Version,
 		}, nil

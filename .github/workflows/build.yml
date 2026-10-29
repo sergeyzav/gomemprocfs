@@ -26,3 +26,24 @@ jobs:
 
       - name: Vet
         run: go vet -unsafeptr=false ./...
+
+      # Tests that need a memory dump skip themselves here; this still runs
+      # the dump-free ones, e.g. the C struct layout checks, on every OS.
+      - name: Test (no dump)
+        run: go test -count=1 ./...
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: v2.15.0

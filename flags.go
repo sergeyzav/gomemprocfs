@@ -56,4 +56,3 @@ const (
 	// ModuleFlagVersionInfo includes version info (company, description, version, etc.).
 	ModuleFlagVersionInfo ModuleFlag = 2
 )
-

@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -8,14 +9,14 @@ import (
 
 // KDriverEntry represents a single kernel driver entry.
 type KDriverEntry struct {
-	Va               uint64
-	VaDriverStart    uint64
-	CbDriverSize     uint64
-	VaDeviceObject   uint64
-	Name             string
-	Path             string
-	ServiceKeyName   string
-	MajorFunction    [28]uint64
+	Va             uint64
+	VaDriverStart  uint64
+	CbDriverSize   uint64
+	VaDeviceObject uint64
+	Name           string
+	Path           string
+	ServiceKeyName string
+	MajorFunction  [28]uint64
 }
 
 // KDriverList contains a list of kernel drivers.
@@ -51,11 +52,8 @@ type kdriverListInternal struct {
 // Each entry includes the driver's virtual address, image path, service key name, and MajorFunction dispatch table.
 func (vmm *Vmm) GetKDriverList() (*KDriverList, error) {
 	var pMap *kdriverListInternal
-	if !vmmMapGetKDriverU(vmm.vmmHandle, &pMap) {
-		return nil, nil
-	}
-	if pMap == nil {
-		return nil, nil
+	if !vmmMapGetKDriverU(vmm.vmmHandle, &pMap) || pMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetKDriverU failed")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 

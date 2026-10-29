@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -43,14 +44,14 @@ type PoolList struct {
 
 // poolEntryInternal mirrors the C struct VMMDLL_MAP_POOLENTRY.
 type poolEntryInternal struct {
-	Va            uint64
-	DwTag         uint32
-	_ReservedZero uint8
-	FAlloc        uint8
-	TpPool        uint8
-	TpSS          uint8
-	Cb            uint32
-	_Filler       uint32
+	Va     uint64
+	DwTag  uint32
+	_      uint8 // ReservedZero
+	FAlloc uint8
+	TpPool uint8
+	TpSS   uint8
+	Cb     uint32
+	_      uint32 // Filler
 }
 
 // poolListInternal mirrors the C struct VMMDLL_MAP_POOL.
@@ -69,11 +70,8 @@ type poolListInternal struct {
 // Use PoolMapFlagAll to return all allocations or PoolMapFlagBig to return only big-pool allocations.
 func (vmm *Vmm) GetPoolList(flag PoolMapFlag) (*PoolList, error) {
 	var pMap *poolListInternal
-	if !vmmMapGetPool(vmm.vmmHandle, &pMap, flag) {
-		return nil, nil
-	}
-	if pMap == nil {
-		return nil, nil
+	if !vmmMapGetPool(vmm.vmmHandle, &pMap, flag) || pMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetPool failed (flag %d)", flag)
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 

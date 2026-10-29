@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -39,14 +40,10 @@ type PhysMemList struct {
 func (vmm *Vmm) GetPhysMem() (*PhysMemList, error) {
 	var pPhysMemMap *physMemListInternal
 	success := vmmMapGetPhysMem(vmm.vmmHandle, &pPhysMemMap)
-	if !success {
-		return nil, nil
+	if !success || pPhysMemMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetPhysMem failed")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pPhysMemMap)))
-
-	if pPhysMemMap == nil {
-		return nil, nil
-	}
 
 	if pPhysMemMap.CMap == 0 {
 		return &PhysMemList{

@@ -28,10 +28,10 @@ type Vmm struct {
 
 var (
 	vmmInitialize                  func(argc int32, args []*byte) uintptr
-	vmmClose                       func(vmmHandle uintptr) uintptr
+	vmmClose                       func(vmmHandle uintptr)
 	vmmCloseAll                    func()
 	vmmMemSize                     func(handle uintptr) uint64
-	vmmMemFree                     func(handle uintptr) uintptr
+	vmmMemFree                     func(handle uintptr)
 	vmmConfigGet                   func(vmmHandle uintptr, option uint64, value *uint64) bool
 	vmmConfigSet                   func(vmmHandle uintptr, option uint64, value uint64) bool
 	vmmInitializePlugins           func(vmmHandle uintptr) bool
@@ -125,18 +125,20 @@ func NewVmm(libPath string, opts ...Option) (*Vmm, error) {
 	}
 
 	lib, err := ffi.OpenLibrary(libPath)
-
 	if err != nil {
 		return nil, err
 	}
 
-	if loadFunctions(lib) != nil {
+	if err := loadFunctions(lib); err != nil {
 		return nil, err
 	}
 
 	argsBytes := make([]*byte, len(args))
 	for i, arg := range args {
 		argsBytes[i], err = syscall.BytePtrFromString(arg)
+		if err != nil {
+			return nil, fmt.Errorf("invalid argument %q: %w", arg, err)
+		}
 	}
 
 	vmmHandle := vmmInitialize(int32(len(args)), argsBytes)
@@ -169,13 +171,10 @@ func (vmm *Vmm) InitializePlugins() error {
 
 // Close shuts down this Vmm session and frees all associated resources.
 // After Close, the Vmm handle must not be used.
+// VMMDLL_Close has no return value, so the error is always nil;
+// it is kept so Vmm satisfies io.Closer.
 func (vmm *Vmm) Close() error {
-	result := vmmClose(vmm.vmmHandle)
-
-	if result == 0 {
-		return errors.New("failed to close Vmm")
-	}
-
+	vmmClose(vmm.vmmHandle)
 	return nil
 }
 
@@ -185,17 +184,19 @@ func CloseAll() {
 	vmmCloseAll()
 }
 
-func (vmm *Vmm) free(recourse uintptr) error {
-	result := vmmMemFree(recourse)
-
-	if result != 0 {
-		return errors.New("failed to free memory")
-	}
-
-	return nil
+func (vmm *Vmm) free(resource uintptr) {
+	vmmMemFree(resource)
 }
 
-func loadFunctions(lib uintptr) error {
+// loadFunctions binds all native symbols. purego panics when a symbol is
+// missing (e.g. an older MemProcFS build), so the panic is turned into an error.
+func loadFunctions(lib uintptr) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("failed to load MemProcFS functions: %v", r)
+		}
+	}()
+
 	purego.RegisterLibFunc(&vmmInitialize, lib, "VMMDLL_Initialize")
 	purego.RegisterLibFunc(&vmmClose, lib, "VMMDLL_Close")
 	purego.RegisterLibFunc(&vmmCloseAll, lib, "VMMDLL_CloseAll")

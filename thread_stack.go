@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -8,14 +9,14 @@ import (
 
 // ThreadCallstackEntry represents a single entry in the thread callstack.
 type ThreadCallstackEntry struct {
-	Index          uint32
-	RegPresent     bool
-	RetAddr        uint64
-	RSP            uint64
-	BaseSP         uint64
-	Displacement   uint32
-	ModuleName     string
-	FunctionName   string
+	Index        uint32
+	RegPresent   bool
+	RetAddr      uint64
+	RSP          uint64
+	BaseSP       uint64
+	Displacement uint32
+	ModuleName   string
+	FunctionName string
 }
 
 // threadCallstackEntryInternal mirrors the C struct VMMDLL_MAP_THREAD_CALLSTACKENTRY.
@@ -25,7 +26,7 @@ type threadCallstackEntryInternal struct {
 	VaRetAddr      uint64
 	VaRSP          uint64
 	VaBaseSP       uint64
-	_FutureUse1    uint32
+	_              uint32 // FutureUse1
 	CbDisplacement uint32
 	UszModule      uintptr
 	UszFunction    uintptr
@@ -60,21 +61,17 @@ type ThreadCallstack struct {
 func (vmm *Vmm) GetThreadCallstack(pid, tid uint32) (*ThreadCallstack, error) {
 	var pCallstackMap *threadCallstackInternal
 	success := vmmMapGetThreadCallstackU(vmm.vmmHandle, pid, tid, 0, &pCallstackMap)
-	if !success {
-		return nil, nil // Or error? Let's return nil for now as per other functions.
+	if !success || pCallstackMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetThreadCallstackU failed for PID %d TID %d", pid, tid)
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pCallstackMap)))
 
-	if pCallstackMap == nil {
-		return nil, nil
-	}
-
 	if pCallstackMap.CMap == 0 {
 		return &ThreadCallstack{
-			Version: pCallstackMap.DwVersion,
-			PID:     pCallstackMap.DwPID,
-			TID:     pCallstackMap.DwTID,
-			Text:    ffi.CStringToGo(pCallstackMap.UszText),
+			Version:   pCallstackMap.DwVersion,
+			PID:       pCallstackMap.DwPID,
+			TID:       pCallstackMap.DwTID,
+			Text:      ffi.CStringToGo(pCallstackMap.UszText),
 			MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pCallstackMap.PbMultiText)), pCallstackMap.CbMultiText)),
 		}, nil
 	}

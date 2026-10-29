@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -51,11 +52,8 @@ type kdeviceListInternal struct {
 // Each entry includes the device's virtual address, type, associated driver object, and optional volume info.
 func (vmm *Vmm) GetKDeviceList() (*KDeviceList, error) {
 	var pMap *kdeviceListInternal
-	if !vmmMapGetKDeviceU(vmm.vmmHandle, &pMap) {
-		return nil, nil
-	}
-	if pMap == nil {
-		return nil, nil
+	if !vmmMapGetKDeviceU(vmm.vmmHandle, &pMap) || pMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetKDeviceU failed")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 
