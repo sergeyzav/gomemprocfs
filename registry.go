@@ -164,7 +164,9 @@ func (vmm *Vmm) RegQueryValueEx(keyValuePath string) (uint32, []byte, error) {
 	var vType uint32
 	var cbData uint32
 	// First call: nil data to get required size.
-	vmmWinRegQueryValueExU(vmm.vmmHandle, keyValuePath, &vType, nil, &cbData)
+	if !vmmWinRegQueryValueExU(vmm.vmmHandle, keyValuePath, &vType, nil, &cbData) {
+		return 0, nil, fmt.Errorf("failed to query registry value: %s", keyValuePath)
+	}
 	if cbData == 0 {
 		return vType, nil, nil
 	}

@@ -432,7 +432,6 @@ func TestGetHeapList(t *testing.T) {
 	}
 
 	t.Logf("Found %d heap entries and %d heap segments for PID %d", len(heapList.Entries), len(heapList.Segments), pid)
-
 }
 
 func TestGetHeapAllocList(t *testing.T) {
@@ -440,21 +439,17 @@ func TestGetHeapAllocList(t *testing.T) {
 	defer vmm.Close()
 
 	pid, err := vmm.GetPidByName("explorer.exe")
-
 	if err != nil {
 		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
 	}
 
 	heapList, err := vmm.GetHeapList(pid)
-
 	if err != nil {
 		t.Fatalf("GetHeapList failed: %v", err)
 	}
 
 	if len(heapList.Entries) == 0 {
-
 		t.Fatal("Heap list is empty, cannot test heap allocations")
-
 	}
 
 	foundAllocations := false
@@ -477,5 +472,4 @@ func TestGetHeapAllocList(t *testing.T) {
 		// Log this instead of failing, as dumps may legitimately have zero heaps with parsable allocations.
 		t.Log("Heap allocation list is empty for all heaps - this is common in recent Windows builds or minimal dumps")
 	}
-
 }

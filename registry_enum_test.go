@@ -73,7 +73,6 @@ func TestRegQueryValueEx(t *testing.T) {
 		utf16[i] = uint16(data[2*i]) | uint16(data[2*i+1])<<8
 	}
 	// Trim null terminator
-	name := string(rune(0))
 	var runes []rune
 	for _, u := range utf16 {
 		if u == 0 {
@@ -81,7 +80,7 @@ func TestRegQueryValueEx(t *testing.T) {
 		}
 		runes = append(runes, rune(u))
 	}
-	name = string(runes)
+	name := string(runes)
 	t.Logf("ProductName: %s", name)
 
 	if !strings.HasPrefix(name, "Windows") {

@@ -51,6 +51,7 @@ func WithVerbose() Option {
 		return []string{"-v"}
 	}
 }
+
 // WithPageFile attaches a Windows page file to supplement the memory image.
 // pageID is 0–9 corresponding to pagefile0–pagefile9.
 func WithPageFile(pageID int, pageFile string) Option {
@@ -95,12 +96,14 @@ func WithDisableSymbols() Option {
 		return []string{"-disable-symbols"}
 	}
 }
+
 // WithDisableInfoDB disables the internal info/symbol database.
 func WithDisableInfoDB() Option {
 	return func() []string {
 		return []string{"-disable-infodb"}
 	}
 }
+
 // WithWaitInitialize blocks NewVmm until full initialization is complete.
 // Without this, some data (e.g. processes) may not be ready immediately after NewVmm returns.
 func WithWaitInitialize() Option {

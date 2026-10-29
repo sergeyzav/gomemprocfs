@@ -1,0 +1,39 @@
+version: "2"
+
+run:
+  tests: true
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - nilnil
+    - nilerr
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # struct layout must mirror C, can't reorder
+        - shadow
+        - unsafeptr # uintptr -> unsafe.Pointer is inherent to the FFI layer
+  exclusions:
+    generated: lax
+    paths:
+      - .claude
+    presets:
+      - std-error-handling
+
+formatters:
+  enable:
+    - gofumpt
+  exclusions:
+    paths:
+      - .claude
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

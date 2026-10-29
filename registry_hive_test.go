@@ -25,7 +25,7 @@ func TestHiveReadEx(t *testing.T) {
 			break
 		}
 	}
-	
+
 	if !foundData {
 		t.Fatal("expected non-zero data from HiveReadEx in at least one hive")
 	}

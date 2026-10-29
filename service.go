@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -38,7 +39,7 @@ type serviceEntryInternal struct {
 	DwOrdinal      uint32
 	DwStartType    uint32
 	ServiceStatus  ServiceStatus
-	_Padding       uint32 // Padding for alignment before pointers
+	_              uint32 // Padding: Padding for alignment before pointers
 	UszServiceName uintptr
 	UszDisplayName uintptr
 	UszPath        uintptr
@@ -46,8 +47,8 @@ type serviceEntryInternal struct {
 	UszUserAcct    uintptr
 	UszImagePath   uintptr
 	DwPID          uint32
-	_FutureUse1    uint32
-	_FutureUse2    uint64
+	_              uint32 // FutureUse1
+	_              uint64 // FutureUse2
 }
 
 // serviceListInternal mirrors the C struct VMMDLL_MAP_SERVICE.
@@ -73,17 +74,8 @@ type ServiceList struct {
 func (vmm *Vmm) GetServiceList() (*ServiceList, error) {
 	var pServiceMap *serviceListInternal
 	success := vmmMapGetServicesU(vmm.vmmHandle, &pServiceMap)
-	if !success {
-		return nil, nil // Return nil if failed (or empty list if appropriate, but usually failure indicates error)
-	}
-	// Note: The C function returns FALSE on failure. However, sometimes it might return TRUE with 0 entries?
-	// The original C code:
-	// if(!VMMDLL_Map_GetServicesU(hVMM, &pServiceMap)) { return fail; }
-	// So success check is standard.
-
-	// If pServiceMap is nil after success call (which shouldn't happen on success typically but good to check)
-	if pServiceMap == nil {
-		return nil, nil
+	if !success || pServiceMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetServicesU failed")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pServiceMap)))
 

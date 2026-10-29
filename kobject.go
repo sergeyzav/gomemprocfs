@@ -1,6 +1,7 @@
 package memprocfs
 
 import (
+	"fmt"
 	"unsafe"
 
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
@@ -26,7 +27,7 @@ type KObjectList struct {
 type kobjectEntryInternal struct {
 	Va       uint64
 	VaParent uint64
-	_Filler  uint32
+	_        uint32 // Filler
 	CvaChild uint32
 	PvaChild uintptr
 	UszName  uintptr
@@ -47,11 +48,8 @@ type kobjectListInternal struct {
 // Each entry includes the object's virtual address, parent, children, name, and type.
 func (vmm *Vmm) GetKObjectList() (*KObjectList, error) {
 	var pMap *kobjectListInternal
-	if !vmmMapGetKObjectU(vmm.vmmHandle, &pMap) {
-		return nil, nil
-	}
-	if pMap == nil {
-		return nil, nil
+	if !vmmMapGetKObjectU(vmm.vmmHandle, &pMap) || pMap == nil {
+		return nil, fmt.Errorf("VMMDLL_Map_GetKObjectU failed")
 	}
 	defer vmm.free(uintptr(unsafe.Pointer(pMap)))
 
