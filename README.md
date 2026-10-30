@@ -10,20 +10,6 @@ Go bindings for [MemProcFS](https://github.com/ufrisk/MemProcFS), providing live
 [![MemProcFS latest](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsergeyzav%2Fgomemprocfs%2Fbadges%2Fmemprocfs-0.json)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml?query=branch%3Amain)
 [![MemProcFS previous](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsergeyzav%2Fgomemprocfs%2Fbadges%2Fmemprocfs-1.json)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml?query=branch%3Amain)
 
-Only the two newest MemProcFS releases are supported. These are the versions CI tests on every push to `main`, and the badges above show their live status. Older releases may work but are not tested.
-
-Versions tested when each go-memprocfs release was made:
-
-| go-memprocfs    | MemProcFS versions tested |
-|-----------------|---------------------------|
-| v0.3.x          | 5.18, 5.19                |
-| v0.2.x          | 5.18, 5.19                |
-| v0.1.3          | 5.15, 5.16, 5.17          |
-| v0.1.0 – v0.1.2 | 5.x (before CI)           |
-
-> [!NOTE]
-> The MemProcFS 5.17.9 build (July 2026) ships an empty `info.db`, which breaks heap functions such as `GetHeapList`. If you use 5.17, replace it with the `info.db` attached to the [v5.17 release](https://github.com/ufrisk/MemProcFS/releases/tag/v5.17).
-
 ## Requirements
 
 This library wraps the native `vmmdll` shared library using [purego](https://github.com/ebitengine/purego). The native libraries must be present on the system:
