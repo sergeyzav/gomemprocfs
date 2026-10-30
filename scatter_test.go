@@ -2,6 +2,7 @@ package memprocfs
 
 import (
 	"bytes"
+	"errors"
 	"testing"
 )
 
@@ -54,6 +55,22 @@ func TestScatterRead(t *testing.T) {
 		t.Errorf("data mismatch:\n  MemRead: %x\n  Scatter: %x", expected[:len(got)], got)
 	}
 	t.Logf("PID=%d base=0x%X: scatter %d bytes matches MemRead ✓", pid, base, len(got))
+
+	// ReadInto must return the same data into a caller-owned buffer.
+	dst := make([]byte, readSize)
+	n, err := hS.ReadInto(base, dst)
+	if err != nil {
+		t.Fatalf("ReadInto failed: %v", err)
+	}
+	if !bytes.Equal(got, dst[:n]) {
+		t.Errorf("ReadInto mismatch:\n  Read:     %x\n  ReadInto: %x", got, dst[:n])
+	}
+
+	// Close is idempotent and later calls return ErrClosed.
+	hS.Close()
+	if _, err := hS.Read(base, readSize); !errors.Is(err, ErrClosed) {
+		t.Errorf("Read after Close: got %v, want ErrClosed", err)
+	}
 }
 
 func TestScatterMultipleRanges(t *testing.T) {
