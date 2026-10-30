@@ -140,8 +140,81 @@ jobs:
           echo "dir=$ABS_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Run tests
+        id: tests
         env:
           VMM_DLL_PATH: ${{ steps.vmm-path.outputs.path }}
           MEMDUMP_PATH: ${{ github.workspace }}/dumps/memdump.raw
           LD_LIBRARY_PATH: ${{ steps.vmm-path.outputs.dir }}
         run: go test -count=1 ./...
+
+      # Save this version's result for the compatibility badges.
+      # "skipped" means an earlier step (download, setup) failed.
+      - name: Save compatibility result
+        if: always()
+        env:
+          MEMPROCFS_VERSION: ${{ matrix.memprocfs-version }}
+          OUTCOME: ${{ steps.tests.outcome }}
+        run: |
+          mkdir -p compat
+          echo "$OUTCOME" > "compat/$MEMPROCFS_VERSION.txt"
+
+      - name: Upload compatibility result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-${{ matrix.memprocfs-version }}
+          path: compat/
+          retention-days: 1
+
+  # Publishes one shields.io endpoint JSON per tested MemProcFS version to the
+  # "badges" branch. README badges read them via raw.githubusercontent.com.
+  badges:
+    name: Update Compatibility Badges
+    needs: [prepare, test]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.prepare.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download compatibility results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: compat-*
+          path: results
+          merge-multiple: true
+
+      - name: Generate badge files
+        env:
+          VERSIONS: ${{ needs.prepare.outputs.memprocfs-versions }}
+        run: |
+          mkdir -p out
+          # Slot 0 is the newest version, so README badges keep a fixed order
+          # while the versions in them change.
+          i=0
+          for v in $(echo "$VERSIONS" | jq -r '.[]'); do
+            outcome=$(cat "results/$v.txt" 2>/dev/null || echo unknown)
+            case "$outcome" in
+              success) msg=passing; color=brightgreen ;;
+              failure) msg=failing; color=red ;;
+              *)       msg=unknown; color=lightgrey ;;
+            esac
+            jq -n --arg label "MemProcFS $v" --arg msg "$msg" --arg color "$color" \
+              '{schemaVersion: 1, label: $label, message: $msg, color: $color, cacheSeconds: 300}' \
+              > "out/memprocfs-$i.json"
+            echo "slot $i: $v -> $msg"
+            i=$((i + 1))
+          done
+
+      - name: Push to badges branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          cd out
+          git init -q -b badges
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "Update compatibility badges"
+          # Force push keeps the branch at a single commit.
+          git push -q --force "https://x-access-token:${GITHUB_TOKEN}@github.com/${REPO}.git" badges
