@@ -21,8 +21,8 @@ jobs:
       - name: Fetch Latest MemProcFS Versions
         id: get-versions
         run: |
-          # Fetch the last 3 non-draft, non-prerelease tags
-          VERSIONS=$(curl -sfL https://api.github.com/repos/ufrisk/MemProcFS/releases | jq -c '[.[] | select(.prerelease==false and .draft==false) | .tag_name] | .[0:3]')
+          # Fetch the last 2 non-draft, non-prerelease tags (latest and previous)
+          VERSIONS=$(curl -sfL https://api.github.com/repos/ufrisk/MemProcFS/releases | jq -c '[.[] | select(.prerelease==false and .draft==false) | .tag_name] | .[0:2]')
           echo "versions=$VERSIONS" >> "$GITHUB_OUTPUT"
 
       - name: Generate dump cache key

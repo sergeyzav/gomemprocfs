@@ -11,11 +11,10 @@ Go bindings for [MemProcFS](https://github.com/ufrisk/MemProcFS), providing live
 |--------------|---------------------------|
 | v0.1.x       | v5.x                      |
 
-CI runs the full test suite against the three latest MemProcFS releases on every push to `main`:
+CI runs the full test suite against the latest and previous MemProcFS releases on every push to `main`:
 
 [![MemProcFS latest](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsergeyzav%2Fgomemprocfs%2Fbadges%2Fmemprocfs-0.json)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml?query=branch%3Amain)
 [![MemProcFS previous](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsergeyzav%2Fgomemprocfs%2Fbadges%2Fmemprocfs-1.json)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml?query=branch%3Amain)
-[![MemProcFS older](https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fsergeyzav%2Fgomemprocfs%2Fbadges%2Fmemprocfs-2.json)](https://github.com/sergeyzav/gomemprocfs/actions/workflows/test.yml?query=branch%3Amain)
 
 ## Requirements
 
