@@ -5,8 +5,12 @@ import (
 	"strconv"
 )
 
-// Special PID to enable kernel memory access
+// Special PID values.
 const (
+	// PidPhysical targets physical memory instead of a process.
+	PidPhysical = 0xFFFFFFFF
+	// PidProcessWithKernelMemory is a flag to OR with a PID to also access
+	// kernel memory from that process's address space.
 	PidProcessWithKernelMemory = 0x80000000
 )
 

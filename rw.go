@@ -12,7 +12,7 @@ func (vmm *Vmm) MemWrite(pid uint32, addr uint64, data []byte) error {
 		return nil
 	}
 	if !vmmMemWrite(vmm.vmmHandle, pid, addr, unsafe.Pointer(&data[0]), uint32(len(data))) {
-		return fmt.Errorf("failed to write memory to PID %d at address 0x%X", pid, addr)
+		return fmt.Errorf("%w: PID %d at address 0x%X", ErrWriteFailed, pid, addr)
 	}
 	return nil
 }
@@ -27,24 +27,33 @@ func (vmm *Vmm) MemVirt2Phys(pid uint32, va uint64) (uint64, error) {
 }
 
 // MemRead reads size bytes from virtual address addr in process pid.
-// Use pid = 0xFFFFFFFF (PidProcessWithKernelMemory) for kernel/physical reads.
+// Use pid = PidPhysical for physical memory, or OR a PID with
+// PidProcessWithKernelMemory to also read that process's kernel memory.
 // Returns an error if any byte in the range is unreadable; use MemReadEx for partial reads.
+// A zero size returns an empty slice.
 func (vmm *Vmm) MemRead(pid uint32, addr uint64, size uint32) ([]byte, error) {
+	if size == 0 {
+		return []byte{}, nil
+	}
 	buffer := make([]byte, size)
 	success := vmmMemRead(vmm.vmmHandle, pid, addr, unsafe.Pointer(&buffer[0]), size)
 	if !success {
-		return nil, fmt.Errorf("failed to read memory from PID %d at address 0x%X", pid, addr)
+		return nil, fmt.Errorf("%w: PID %d at address 0x%X", ErrReadFailed, pid, addr)
 	}
 	return buffer, nil
 }
 
 // MemReadEx reads memory with optional flags and reports the actual bytes read.
 // NB: may return success even if fewer than size bytes were read — check bytesRead.
+// A zero size returns an empty slice.
 func (vmm *Vmm) MemReadEx(pid uint32, addr uint64, size uint32, flags MemFlag) ([]byte, uint32, error) {
+	if size == 0 {
+		return []byte{}, 0, nil
+	}
 	buf := make([]byte, size)
 	var cbRead uint32
 	if !vmmMemReadEx(vmm.vmmHandle, pid, addr, unsafe.Pointer(&buf[0]), size, &cbRead, uint64(flags)) {
-		return nil, 0, fmt.Errorf("failed to read memory (ex) from PID %d at 0x%X", pid, addr)
+		return nil, 0, fmt.Errorf("%w: PID %d at 0x%X (ex)", ErrReadFailed, pid, addr)
 	}
 	return buf[:cbRead], cbRead, nil
 }
@@ -53,7 +62,7 @@ func (vmm *Vmm) MemReadEx(pid uint32, addr uint64, size uint32, flags MemFlag) (
 func (vmm *Vmm) MemReadPage(pid uint32, addr uint64) ([]byte, error) {
 	buf := make([]byte, 4096)
 	if !vmmMemReadPage(vmm.vmmHandle, pid, addr, unsafe.Pointer(&buf[0])) {
-		return nil, fmt.Errorf("failed to read page from PID %d at 0x%X", pid, addr)
+		return nil, fmt.Errorf("%w: page from PID %d at 0x%X", ErrReadFailed, pid, addr)
 	}
 	return buf, nil
 }
@@ -65,7 +74,7 @@ func (vmm *Vmm) MemPrefetchPages(pid uint32, addresses []uint64) error {
 		return nil
 	}
 	if !vmmMemPrefetchPages(vmm.vmmHandle, pid, unsafe.Pointer(&addresses[0]), uint32(len(addresses))) {
-		return fmt.Errorf("failed to prefetch pages for PID %d", pid)
+		return fmt.Errorf("%w: prefetch pages for PID %d", ErrReadFailed, pid)
 	}
 	return nil
 }
