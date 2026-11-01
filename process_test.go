@@ -150,6 +150,36 @@ func TestGetModuleList(t *testing.T) {
 	}
 }
 
+func TestGetModuleListTypes(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+	moduleList, err := vmm.GetModuleList(pid, ModuleFlagNone)
+	if err != nil {
+		t.Fatalf("GetModuleList failed: %v", err)
+	}
+
+	// MemProcFS names data and not-linked modules with these prefixes.
+	for _, m := range moduleList.Modules {
+		want := ModuleTypeNormal
+		switch {
+		case strings.HasPrefix(m.Name, "_DATA-"):
+			want = ModuleTypeData
+		case strings.HasPrefix(m.Name, "_NOTLINKED-"):
+			want = ModuleTypeNotLinked
+		case strings.HasPrefix(m.Name, "_INJECTED-"):
+			want = ModuleTypeInjected
+		}
+		if m.Type != want {
+			t.Errorf("module %s: Type = %d, want %d", m.Name, m.Type, want)
+		}
+	}
+}
+
 func TestGetThreadList(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()

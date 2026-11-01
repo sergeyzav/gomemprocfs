@@ -85,9 +85,10 @@ type ProcessInfo struct {
 type ModuleType uint32
 
 const (
-	ModuleTypeUnknown ModuleType = 0
-	ModuleTypeNormal  ModuleType = 1
-	ModuleTypeData    ModuleType = 2
+	ModuleTypeNormal    ModuleType = 0
+	ModuleTypeData      ModuleType = 1
+	ModuleTypeNotLinked ModuleType = 2
+	ModuleTypeInjected  ModuleType = 3
 )
 
 // ModuleDebugInfo contains PDB debug information for a module.
