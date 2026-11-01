@@ -8,7 +8,7 @@ import (
 	"github.com/sergeyzav/gomemprocfs/internal/ffi"
 )
 
-// vfsPath normalises a path for VfsListBlobU which requires backslash separators.
+// vfsPath converts a path to the backslash separators MemProcFS expects.
 func vfsPath(path string) string {
 	return strings.ReplaceAll(path, "/", `\`)
 }
@@ -92,7 +92,7 @@ func (vmm *Vmm) VfsRead(path string, cb uint32, offset uint64) ([]byte, error) {
 	}
 	buf := make([]byte, cb)
 	var cbRead uint32
-	status := vmmVfsReadU(vmm.vmmHandle, path, unsafe.Pointer(&buf[0]), cb, &cbRead, offset)
+	status := vmmVfsReadU(vmm.vmmHandle, vfsPath(path), unsafe.Pointer(&buf[0]), cb, &cbRead, offset)
 	// NTSTATUS: 0 = STATUS_SUCCESS, 0x80000005 = STATUS_BUFFER_OVERFLOW (partial), others = error
 	if status != 0 && cbRead == 0 {
 		return nil, fmt.Errorf("VfsRead failed for %q: NTSTATUS=0x%X", path, status)
@@ -107,7 +107,7 @@ func (vmm *Vmm) VfsWrite(path string, data []byte, offset uint64) error {
 		return nil
 	}
 	var cbWrite uint32
-	status := vmmVfsWriteU(vmm.vmmHandle, path, unsafe.Pointer(&data[0]), uint32(len(data)), &cbWrite, offset)
+	status := vmmVfsWriteU(vmm.vmmHandle, vfsPath(path), unsafe.Pointer(&data[0]), uint32(len(data)), &cbWrite, offset)
 	if status != 0 {
 		return fmt.Errorf("VfsWrite failed for %q: NTSTATUS=0x%X", path, status)
 	}
