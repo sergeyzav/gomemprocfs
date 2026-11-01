@@ -209,7 +209,7 @@ func TestGetVadList(t *testing.T) {
 }
 
 // TestGetVadListHeapFlags checks that VADs holding a process heap report it
-// with the right heap number, which needs the real Dw0 bit layout.
+// with the right heap number.
 func TestGetVadListHeapFlags(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()
