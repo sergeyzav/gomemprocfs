@@ -41,11 +41,9 @@ type ProcessIntegrityLevel uint32
 type ProcessInfoStringOptions uint32
 
 const (
-	ProcessInformationOptStringPathUserImage ProcessInfoStringOptions = 0x1
-	ProcessInformationOptStringPathKernel    ProcessInfoStringOptions = 0x2
-	ProcessInformationOptStringCmdline       ProcessInfoStringOptions = 0x4
-	ProcessInformationOptStringSID           ProcessInfoStringOptions = 0x8
-	ProcessInformationOptStringSystemRoot    ProcessInfoStringOptions = 0x10
+	ProcessInformationOptStringPathKernel    ProcessInfoStringOptions = 1
+	ProcessInformationOptStringPathUserImage ProcessInfoStringOptions = 2
+	ProcessInformationOptStringCmdline       ProcessInfoStringOptions = 3
 )
 
 // WinProcessInfo mirrors the nested 'win' struct from VMMDLL_PROCESS_INFORMATION
