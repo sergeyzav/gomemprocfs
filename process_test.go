@@ -57,14 +57,26 @@ func TestGetProcessInfoString(t *testing.T) {
 		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
 	}
 
-	path, err := vmm.GetProcessInfoString(pid, ProcessInformationOptStringPathUserImage)
-	if err != nil {
-		t.Fatalf("GetProcessInfoString failed: %v", err)
+	get := func(opt ProcessInfoStringOptions) string {
+		t.Helper()
+		s, err := vmm.GetProcessInfoString(pid, opt)
+		if err != nil {
+			t.Fatalf("GetProcessInfoString(%d) failed: %v", opt, err)
+		}
+		t.Logf("option %d: %s", opt, s)
+		return s
 	}
-	if path == "" {
-		t.Fatal("Expected a non-empty path for 'explorer.exe'")
+
+	if kernel := get(ProcessInformationOptStringPathKernel); !strings.HasPrefix(kernel, `\Device\`) {
+		t.Errorf("kernel path %q does not start with \\Device\\", kernel)
 	}
-	t.Logf("Path for 'explorer.exe': %s", path)
+	user := get(ProcessInformationOptStringPathUserImage)
+	if len(user) < 3 || user[1:3] != `:\` || !strings.EqualFold(user[len(user)-len("explorer.exe"):], "explorer.exe") {
+		t.Errorf("user image path %q is not a DOS path to explorer.exe", user)
+	}
+	if cmdline := get(ProcessInformationOptStringCmdline); !strings.Contains(strings.ToLower(cmdline), "explorer") {
+		t.Errorf("command line %q does not mention explorer", cmdline)
+	}
 }
 
 func TestGetProcessInfo(t *testing.T) {
@@ -147,6 +159,36 @@ func TestGetModuleList(t *testing.T) {
 
 	if len(moduleList.Modules) != int(moduleList.Count) {
 		t.Errorf("Module count mismatch: expected %d, got %d", moduleList.Count, len(moduleList.Modules))
+	}
+}
+
+func TestGetModuleListTypes(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName(\"explorer.exe\") failed: %v", err)
+	}
+	moduleList, err := vmm.GetModuleList(pid, ModuleFlagNone)
+	if err != nil {
+		t.Fatalf("GetModuleList failed: %v", err)
+	}
+
+	// MemProcFS names data and not-linked modules with these prefixes.
+	for _, m := range moduleList.Modules {
+		want := ModuleTypeNormal
+		switch {
+		case strings.HasPrefix(m.Name, "_DATA-"):
+			want = ModuleTypeData
+		case strings.HasPrefix(m.Name, "_NOTLINKED-"):
+			want = ModuleTypeNotLinked
+		case strings.HasPrefix(m.Name, "_INJECTED-"):
+			want = ModuleTypeInjected
+		}
+		if m.Type != want {
+			t.Errorf("module %s: Type = %d, want %d", m.Name, m.Type, want)
+		}
 	}
 }
 

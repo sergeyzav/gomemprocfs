@@ -77,6 +77,23 @@ func TestVfsRead(t *testing.T) {
 	}
 }
 
+func TestVfsReadSlashPath(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	want, err := vmm.VfsRead(`\sys\version.txt`, 64, 0)
+	if err != nil {
+		t.Fatalf("VfsRead with backslashes failed: %v", err)
+	}
+	got, err := vmm.VfsRead("/sys/version.txt", 64, 0)
+	if err != nil {
+		t.Fatalf("VfsRead with slashes failed: %v", err)
+	}
+	if string(got) != string(want) {
+		t.Errorf("slash path read %q, want %q", got, want)
+	}
+}
+
 func TestVfsReadOffset(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()

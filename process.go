@@ -41,11 +41,9 @@ type ProcessIntegrityLevel uint32
 type ProcessInfoStringOptions uint32
 
 const (
-	ProcessInformationOptStringPathUserImage ProcessInfoStringOptions = 0x1
-	ProcessInformationOptStringPathKernel    ProcessInfoStringOptions = 0x2
-	ProcessInformationOptStringCmdline       ProcessInfoStringOptions = 0x4
-	ProcessInformationOptStringSID           ProcessInfoStringOptions = 0x8
-	ProcessInformationOptStringSystemRoot    ProcessInfoStringOptions = 0x10
+	ProcessInformationOptStringPathKernel    ProcessInfoStringOptions = 1
+	ProcessInformationOptStringPathUserImage ProcessInfoStringOptions = 2
+	ProcessInformationOptStringCmdline       ProcessInfoStringOptions = 3
 )
 
 // WinProcessInfo mirrors the nested 'win' struct from VMMDLL_PROCESS_INFORMATION
@@ -85,9 +83,10 @@ type ProcessInfo struct {
 type ModuleType uint32
 
 const (
-	ModuleTypeUnknown ModuleType = 0
-	ModuleTypeNormal  ModuleType = 1
-	ModuleTypeData    ModuleType = 2
+	ModuleTypeNormal    ModuleType = 0
+	ModuleTypeData      ModuleType = 1
+	ModuleTypeNotLinked ModuleType = 2
+	ModuleTypeInjected  ModuleType = 3
 )
 
 // ModuleDebugInfo contains PDB debug information for a module.
