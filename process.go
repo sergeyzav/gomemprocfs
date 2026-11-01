@@ -587,34 +587,39 @@ func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 		Vads:      make([]Vad, len(internalEntries)),
 	}
 
-	for i, entry := range internalEntries {
-		result.Vads[i] = Vad{
-			Start:            entry.VaStart,
-			End:              entry.VaEnd,
-			VadAddress:       entry.VaVad,
-			VadType:          entry.Dw0 & 0x7,
-			Protection:       (entry.Dw0 >> 3) & 0x1F,
-			IsImage:          (entry.Dw0>>8)&1 != 0,
-			IsFile:           (entry.Dw0>>9)&1 != 0,
-			IsPageFile:       (entry.Dw0>>10)&1 != 0,
-			IsPrivateMemory:  (entry.Dw0>>11)&1 != 0,
-			IsTeb:            (entry.Dw0>>12)&1 != 0,
-			IsStack:          (entry.Dw0>>13)&1 != 0,
-			HeapNum:          (entry.Dw0 >> 24) & 0x7F,
-			IsHeap:           (entry.Dw0>>31)&1 != 0,
-			CommitCharge:     entry.Dw1 & 0x7FFFFFFF,
-			IsCommitted:      (entry.Dw1>>31)&1 != 0,
-			PrototypePteSize: entry.CbPrototypePte,
-			PrototypePte:     entry.VaPrototypePte,
-			Subsection:       entry.VaSubsection,
-			Text:             ffi.CStringToGo(entry.UszText),
-			FileObject:       entry.VaFileObject,
-			VadExPages:       entry.CVadExPages,
-			VadExPagesBase:   entry.CVadExPagesBase,
-		}
+	for i := range internalEntries {
+		result.Vads[i] = convertVadEntry(&internalEntries[i])
 	}
 
 	return result, nil
+}
+
+// convertVadEntry converts a native VAD entry to its public form.
+func convertVadEntry(entry *vadEntryInternal) Vad {
+	return Vad{
+		Start:            entry.VaStart,
+		End:              entry.VaEnd,
+		VadAddress:       entry.VaVad,
+		VadType:          entry.Dw0 & 0x7,
+		Protection:       (entry.Dw0 >> 3) & 0x1F,
+		IsImage:          (entry.Dw0>>8)&1 != 0,
+		IsFile:           (entry.Dw0>>9)&1 != 0,
+		IsPageFile:       (entry.Dw0>>10)&1 != 0,
+		IsPrivateMemory:  (entry.Dw0>>11)&1 != 0,
+		IsTeb:            (entry.Dw0>>12)&1 != 0,
+		IsStack:          (entry.Dw0>>13)&1 != 0,
+		HeapNum:          (entry.Dw0 >> 24) & 0x7F,
+		IsHeap:           (entry.Dw0>>31)&1 != 0,
+		CommitCharge:     entry.Dw1 & 0x7FFFFFFF,
+		IsCommitted:      (entry.Dw1>>31)&1 != 0,
+		PrototypePteSize: entry.CbPrototypePte,
+		PrototypePte:     entry.VaPrototypePte,
+		Subsection:       entry.VaSubsection,
+		Text:             ffi.CStringToGo(entry.UszText),
+		FileObject:       entry.VaFileObject,
+		VadExPages:       entry.CVadExPages,
+		VadExPagesBase:   entry.CVadExPagesBase,
+	}
 }
 
 // GetThreadList returns all threads for process pid.
@@ -1079,15 +1084,8 @@ func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 	entriesInternal := ffi.FAM[pteListInternal, pteEntryInternal](pPteMap, int(pPteMap.CMap))
 
 	entries := make([]PteEntry, pPteMap.CMap)
-	for i, entry := range entriesInternal {
-		entries[i] = PteEntry{
-			BaseAddress:   entry.VaBase,
-			PageCount:     entry.CPages,
-			PageFlags:     entry.FPage,
-			IsWow64:       entry.FWoW64 != 0,
-			Name:          ffi.CStringToGo(entry.UszText),
-			SoftwareCount: entry.CSoftware,
-		}
+	for i := range entriesInternal {
+		entries[i] = convertPteEntry(&entriesInternal[i])
 	}
 
 	return &PteList{
@@ -1096,6 +1094,18 @@ func (vmm *Vmm) GetPteList(pid uint32, identifyModules bool) (*PteList, error) {
 		MultiText: string(unsafe.Slice((*byte)(unsafe.Pointer(pPteMap.PbMultiText)), pPteMap.CbMultiText)),
 		Entries:   entries,
 	}, nil
+}
+
+// convertPteEntry converts a native PTE entry to its public form.
+func convertPteEntry(entry *pteEntryInternal) PteEntry {
+	return PteEntry{
+		BaseAddress:   entry.VaBase,
+		PageCount:     entry.CPages,
+		PageFlags:     entry.FPage,
+		IsWow64:       entry.FWoW64 != 0,
+		Name:          ffi.CStringToGo(entry.UszText),
+		SoftwareCount: entry.CSoftware,
+	}
 }
 
 // netAddrInternal mirrors the nested address struct in VMMDLL_MAP_NETENTRY

@@ -271,6 +271,7 @@ func loadFunctions(lib uintptr) (err error) {
 	purego.RegisterLibFunc(&vmmVmMemRead, lib, "VMMDLL_VmMemRead")
 	purego.RegisterLibFunc(&vmmVmMemWrite, lib, "VMMDLL_VmMemWrite")
 	purego.RegisterLibFunc(&vmmVmMemTranslateGPA, lib, "VMMDLL_VmMemTranslateGPA")
+	loadSearchFunctions(lib)
 
 	return nil
 }
