@@ -20,9 +20,20 @@ jobs:
     steps:
       - name: Fetch Latest MemProcFS Versions
         id: get-versions
+        env:
+          # Authenticated requests avoid the 60/hour limit for anonymous API calls.
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           # Fetch the last 2 non-draft, non-prerelease tags (latest and previous)
-          VERSIONS=$(curl -sfL https://api.github.com/repos/ufrisk/MemProcFS/releases | jq -c '[.[] | select(.prerelease==false and .draft==false) | .tag_name] | .[0:2]')
+          VERSIONS=$(gh api repos/ufrisk/MemProcFS/releases \
+            --jq '[.[] | select(.prerelease==false and .draft==false) | .tag_name] | .[0:2]')
+          # Fail here instead of running an empty test matrix.
+          if [ "$(echo "$VERSIONS" | jq 'length')" -ne 2 ]; then
+            echo "::error::Expected 2 MemProcFS versions, got: $VERSIONS"
+            exit 1
+          fi
+          echo "Testing MemProcFS versions: $VERSIONS"
           echo "versions=$VERSIONS" >> "$GITHUB_OUTPUT"
 
       - name: Generate dump cache key
@@ -96,13 +107,15 @@ jobs:
         if: steps.cache-vmm.outputs.cache-hit != 'true'
         env:
           MEMPROCFS_VERSION: ${{ matrix.memprocfs-version }}
+          GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           mkdir -p memprocfs
-          
+
           PATTERN="linux_x64"
-          
+
           # Fetch assets list for the specific version using env var to avoid injection
-          ASSETS=$(curl -sfL "https://api.github.com/repos/ufrisk/MemProcFS/releases/tags/$MEMPROCFS_VERSION")
+          ASSETS=$(gh api "repos/ufrisk/MemProcFS/releases/tags/$MEMPROCFS_VERSION")
           
           # Find the exact asset URL matching the pattern
           DOWNLOAD_URL=$(echo "$ASSETS" | jq -r ".assets[] | select(.name | test(\"$PATTERN\")) | .browser_download_url" | head -1)
@@ -204,6 +217,10 @@ jobs:
             echo "slot $i: $v -> $msg"
             i=$((i + 1))
           done
+          if [ "$i" -eq 0 ]; then
+            echo "::error::No MemProcFS versions to publish badges for"
+            exit 1
+          fi
 
       - name: Push to badges branch
         env:
