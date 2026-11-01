@@ -209,7 +209,7 @@ func TestGetVadList(t *testing.T) {
 }
 
 // TestGetVadListHeapFlags checks that VADs holding a process heap report it
-// with the right heap number.
+// with the right heap index (HeapEntry.IHeap).
 func TestGetVadListHeapFlags(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()
@@ -235,8 +235,8 @@ func TestGetVadListHeapFlags(t *testing.T) {
 				continue
 			}
 			checked++
-			if !v.IsHeap || v.HeapNum != h.HeapNum {
-				t.Errorf("VAD %#x holding heap %d at %#x: IsHeap=%v HeapNum=%d", v.Start, h.HeapNum, h.Address, v.IsHeap, v.HeapNum)
+			if !v.IsHeap || v.HeapNum != h.IHeap {
+				t.Errorf("VAD %#x holding heap %d at %#x: IsHeap=%v HeapNum=%d", v.Start, h.IHeap, h.Address, v.IsHeap, v.HeapNum)
 			}
 		}
 	}
