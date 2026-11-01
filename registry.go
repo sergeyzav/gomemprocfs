@@ -90,7 +90,7 @@ func (vmm *Vmm) GetRegistrySubKeys(keyPath string) ([]RegistryKey, error) {
 			break
 		}
 		keys = append(keys, RegistryKey{
-			Name:          string(nameBuf[:cchName]),
+			Name:          ffi.ByteSliceToString(nameBuf[:cchName]),
 			LastWriteTime: lastWrite,
 		})
 	}
@@ -122,7 +122,7 @@ func (vmm *Vmm) GetRegistryValues(keyPath string) ([]RegistryValue, error) {
 			data = data[:cbData]
 		}
 		values = append(values, RegistryValue{
-			Name: string(nameBuf[:cchName]),
+			Name: ffi.ByteSliceToString(nameBuf[:cchName]),
 			Type: vType,
 			Data: data,
 		})
