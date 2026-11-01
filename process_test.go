@@ -208,6 +208,43 @@ func TestGetVadList(t *testing.T) {
 	t.Logf("Found %d VADs for PID %d", len(vadList.Vads), pid)
 }
 
+// TestGetVadListHeapFlags checks that VADs holding a process heap report it
+// with the right heap number, which needs the real Dw0 bit layout.
+func TestGetVadListHeapFlags(t *testing.T) {
+	vmm := setupVmm(t)
+	defer vmm.Close()
+
+	pid, err := vmm.GetPidByName("explorer.exe")
+	if err != nil {
+		t.Fatalf("GetPidByName failed: %v", err)
+	}
+	heaps, err := vmm.GetHeapList(pid)
+	if err != nil {
+		t.Fatalf("GetHeapList failed: %v", err)
+	}
+	// Heap info is only filled in when modules are identified.
+	vadList, err := vmm.GetVadList(pid, true)
+	if err != nil {
+		t.Fatalf("GetVadList failed: %v", err)
+	}
+
+	checked := 0
+	for _, h := range heaps.Entries {
+		for _, v := range vadList.Vads {
+			if h.Address < v.Start || h.Address > v.End {
+				continue
+			}
+			checked++
+			if !v.IsHeap || v.HeapNum != h.HeapNum {
+				t.Errorf("VAD %#x holding heap %d at %#x: IsHeap=%v HeapNum=%d", v.Start, h.HeapNum, h.Address, v.IsHeap, v.HeapNum)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatal("no heap found inside any VAD")
+	}
+}
+
 func TestGetHandleList(t *testing.T) {
 	vmm := setupVmm(t)
 	defer vmm.Close()

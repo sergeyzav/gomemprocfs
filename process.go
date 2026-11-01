@@ -587,6 +587,8 @@ func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 		Vads:      make([]Vad, len(internalEntries)),
 	}
 
+	// vmmdll.h puts HeapNum at bit 16 and fHeap at bit 23 of Dw0, but MemProcFS
+	// copies its internal VAD entry here, where they are at bits 24 and 31.
 	for i, entry := range internalEntries {
 		result.Vads[i] = Vad{
 			Start:            entry.VaStart,
@@ -600,8 +602,8 @@ func (vmm *Vmm) GetVadList(pid uint32, identifyModules bool) (*VadList, error) {
 			IsPrivateMemory:  (entry.Dw0>>11)&1 != 0,
 			IsTeb:            (entry.Dw0>>12)&1 != 0,
 			IsStack:          (entry.Dw0>>13)&1 != 0,
-			HeapNum:          (entry.Dw0 >> 16) & 0x7F,
-			IsHeap:           (entry.Dw0>>23)&1 != 0,
+			HeapNum:          (entry.Dw0 >> 24) & 0x7F,
+			IsHeap:           (entry.Dw0>>31)&1 != 0,
 			CommitCharge:     entry.Dw1 & 0x7FFFFFFF,
 			IsCommitted:      (entry.Dw1>>31)&1 != 0,
 			PrototypePteSize: entry.CbPrototypePte,
