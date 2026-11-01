@@ -98,6 +98,29 @@ scatter.ExecuteRead()
 data, _ := scatter.Read(0x7FF000000000, 0x100)
 ```
 
+### Searching memory
+
+```go
+ctx := context.Background()
+
+// Byte patterns, with an optional per-bit wildcard mask ("M?" here).
+hits, err := vmm.MemSearch(ctx, pid, []memprocfs.SearchPattern{
+    {Bytes: []byte{'M', 0}, Mask: []byte{0, 0xFF}, Align: 0x1000},
+}, nil)
+
+// Or get hits one by one; return false to stop.
+err = vmm.MemSearchFunc(ctx, pid, patterns, nil, func(va uint64, pattern int) bool {
+    fmt.Printf("pattern %d at %#x\n", pattern, va)
+    return true
+})
+
+// YARA rules (source text, rule files or one compiled file).
+// Needs the vmmyara library next to vmm.dylib / vmm.dll / vmm.so.
+hits, err = vmm.YaraSearch(ctx, pid, []string{`rule mz { strings: $a = "MZ" condition: $a }`}, nil)
+```
+
+Pass `memprocfs.PidPhysical` as `pid` to search physical memory. `SearchOptions` limits the address range and number of results, and its `Filter` decides which memory regions to read. Cancel `ctx` to stop a long search.
+
 ## Initialization options
 
 | Option | Description |

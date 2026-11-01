@@ -16,4 +16,7 @@ var (
 	ErrWriteFailed = errors.New("memory write failed")
 	// ErrScatterFailed is returned when a scatter prepare, execute or clear fails.
 	ErrScatterFailed = errors.New("scatter operation failed")
+	// ErrSearchFailed is returned when the native library fails a memory or
+	// YARA search, e.g. because of invalid rules or a missing vmmyara library.
+	ErrSearchFailed = errors.New("search failed")
 )

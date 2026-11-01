@@ -97,6 +97,10 @@ var mirrors = []mirror{
 	{"vfsFileListExInfoInternal", "VMMDLL_VFS_FILELIST_EXINFO", ""},
 	{"vfsFileListBlobEntryInternal", "VMMDLL_VFS_FILELISTBLOB_ENTRY", ""},
 	{"winThunkInfoInternal", "VMMDLL_WIN_THUNKINFO_IAT", ""},
+	{"memSearchEntryInternal", "VMMDLL_MEM_SEARCH_CONTEXT_SEARCHENTRY", ""},
+	{"memSearchContextInternal", "VMMDLL_MEM_SEARCH_CONTEXT", ""},
+	{"yaraConfigInternal", "VMMDLL_YARA_CONFIG", ""},
+	{"yaraRuleMatchInternal", "VMMYARA_RULE_MATCH", ""},
 }
 
 // aliases pair Go fields whose names can't be matched to C automatically.
