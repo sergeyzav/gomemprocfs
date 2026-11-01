@@ -22,6 +22,26 @@ func TestGetRegistrySubKeys(t *testing.T) {
 
 	for i, k := range keys {
 		t.Logf("#%d: name=%s lastWrite=0x%X", i, k.Name, k.LastWriteTime)
+		if strings.ContainsRune(k.Name, 0) {
+			t.Errorf("sub-key name %q contains NUL", k.Name)
+		}
+	}
+
+	// The names must match the sub-key directories MemProcFS shows in its VFS.
+	entries, err := vmm.VfsList(`\registry\` + keyPath)
+	if err != nil {
+		t.Fatalf("VfsList failed: %v", err)
+	}
+	dirs := map[string]bool{}
+	for _, e := range entries {
+		if e.IsDirectory {
+			dirs[e.Name] = true
+		}
+	}
+	for _, k := range keys {
+		if !dirs[k.Name] {
+			t.Errorf("sub-key %q is not a directory in the VFS", k.Name)
+		}
 	}
 }
 
@@ -42,6 +62,19 @@ func TestGetRegistryValues(t *testing.T) {
 
 	for i, v := range values {
 		t.Logf("#%d: name=%s type=%d len=%d", i, v.Name, v.Type, len(v.Data))
+		if strings.ContainsRune(v.Name, 0) {
+			t.Errorf("value name %q contains NUL", v.Name)
+		}
+	}
+
+	// A returned name must round-trip through RegQueryValueEx.
+	v := values[0]
+	vType, data, err := vmm.RegQueryValueEx(keyPath + `\` + v.Name)
+	if err != nil {
+		t.Fatalf("RegQueryValueEx(%q) failed: %v", v.Name, err)
+	}
+	if vType != v.Type || string(data) != string(v.Data) {
+		t.Errorf("RegQueryValueEx(%q) = type %d len %d, want type %d len %d", v.Name, vType, len(data), v.Type, len(v.Data))
 	}
 }
 
